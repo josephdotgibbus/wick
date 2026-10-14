@@ -1,0 +1,17 @@
+{
+  "name": "WICK",
+  "short_name": "WICK",
+  "description": "Keep the wick lit. A short, endlessly replayable survival arcade game.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#100c0a",
+  "theme_color": "#100c0a",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

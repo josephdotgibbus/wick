@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#100c0a" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="WICK is a short, endlessly replayable survival game. Keep the flame fed, draft a strange build, and see how long one wick can last."
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>WICK</title>
+  </head>
+  <body>
+    <canvas id="view" aria-hidden="true"></canvas>
+    <button id="mute" type="button">Sound</button>
+    <div id="hud" hidden>
+      <div class="top">
+        <div class="heatwrap">
+          <div class="heat" id="heat">
+            <div class="heat-fill" id="heat-fill"></div>
+          </div>
+          <div class="heatmeta">
+            <span id="heat-label">Heat</span>
+            <span id="hint"></span>
+          </div>
+        </div>
+        <div class="scoreblock">
+          <div id="score" class="score">0</div>
+          <div id="combo" class="combo"></div>
+          <div id="bestline" class="bestline"></div>
+          <div class="blaze" id="blaze" title="Blaze">
+            <div id="blaze-fill"></div>
+          </div>
+        </div>
+        <div class="timeblock">
+          <div id="clock">0:00</div>
+          <div id="seed-mini"></div>
+        </div>
+      </div>
+      <div id="boss" hidden>
+        <div id="boss-name"></div>
+        <div class="bossbar"><div id="boss-fill"></div></div>
+      </div>
+      <div class="bottom">
+        <div class="levelblock">
+          <div id="level">Level 1</div>
+          <div class="xp"><div id="xp-fill"></div></div>
+          <div id="synergy-line"></div>
+          <button id="pause-btn" type="button" hidden>Pause</button>
+        </div>
+        <button id="burst" type="button">Burst</button>
+        <button id="keycap" type="button">
+          <i id="keycap-fill"></i>
+          <span>Burst<small>Space</small></span>
+        </button>
+      </div>
+    </div>
+    <div id="banner" hidden>
+      <div id="banner-title"></div>
+      <div id="banner-sub"></div>
+    </div>
+    <div id="shell">
+      <section id="panel-menu" class="panel menu">
+        <p class="kicker">Survival arcade</p>
+        <h1>Wick</h1>
+        <p class="lede">
+          The flame is hungry. So is the dark. Feed it embers, draft a build, and see how long one wick can last.
+        </p>
+        <div class="row">
+          <button id="play" class="primary" type="button">Light the wick</button>
+          <button id="daily" class="ghost" type="button">Daily burn</button>
+        </div>
+        <p class="note" id="daily-note"></p>
+        <form id="seed-form">
+          <label for="seed-input">Run a seed</label>
+          <div class="row">
+            <input
+              id="seed-input"
+              name="seed"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="40"
+              placeholder="WICK-0000-0000 or any phrase"
+              aria-describedby="seed-help"
+            />
+            <button class="ghost" type="submit">Run</button>
+          </div>
+          <p id="seed-help" class="note">Same spawns. Your hands still decide the wick.</p>
+        </form>
+        <fieldset>
+          <legend>Blessing</legend>
+          <div id="blessings" class="blessings"></div>
+        </fieldset>
+        <div id="empty-records" class="note">No burns yet. The first one teaches the wick.</div>
+        <dl class="records" id="records" hidden></dl>
+        <ol id="history" class="history" hidden></ol>
+        <p class="keys">Mouse, stick, or WASD to move · Space, click, or Burst · Esc pauses · M mutes</p>
+      </section>
+
+      <section id="panel-level" class="panel wide" hidden>
+        <p class="kicker">The wick changes</p>
+        <h2>Choose one</h2>
+        <div id="cards" class="cards"></div>
+        <p class="keys" id="level-keys">Keys 1, 2, 3</p>
+        <p class="syn-live" id="level-syn"></p>
+      </section>
+
+      <section id="panel-pause" class="panel" hidden>
+        <p class="kicker">Still burning</p>
+        <h2>Paused</h2>
+        <p id="pause-build" class="build"></p>
+        <div class="row">
+          <button id="resume" class="primary" type="button">Resume</button>
+          <button id="give-up" class="ghost" type="button">End run</button>
+        </div>
+        <p class="keys">WASD or mouse · Space or click to burst · Esc resumes · M mutes</p>
+      </section>
+
+      <section id="panel-dead" class="panel" hidden aria-live="polite">
+        <p class="kicker">Snuffed</p>
+        <p class="big-score" id="dead-score">0</p>
+        <p class="record" id="dead-record"></p>
+        <h2 id="dead-eulogy"></h2>
+        <dl class="stats" id="dead-stats"></dl>
+        <p class="build" id="dead-build"></p>
+        <p class="unlocks" id="dead-unlocks"></p>
+        <div class="seedline">
+          <input id="dead-seed" readonly aria-label="Seed" />
+          <button id="copy-seed" class="ghost" type="button">Copy</button>
+        </div>
+        <div class="row">
+          <button id="again" class="primary" type="button">Same seed</button>
+          <button id="fresh" class="ghost" type="button">New wick</button>
+          <button id="to-menu" class="ghost" type="button">Menu</button>
+        </div>
+      </section>
+
+      <section id="panel-error" class="panel" hidden>
+        <p class="kicker">No flame</p>
+        <h2>The wick won't catch</h2>
+        <p class="lede">This browser didn't provide a canvas. Try a current Chrome, Firefox, or Safari.</p>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
