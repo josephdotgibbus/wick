@@ -252,8 +252,14 @@ function drawDecor(ctx: CanvasRenderingContext2D, d: Decor, t: number): void {
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
+  const fading = e.arrive < 1
+  if (fading) {
+    ctx.save()
+    ctx.globalAlpha *= e.arrive
+  }
   if (e.kind === 'boss') drawBoss(ctx, e, t)
   else drawShadow(ctx, e, t, e.kind === 'cinder')
+  if (fading) ctx.restore()
 }
 
 function drawShadow(ctx: CanvasRenderingContext2D, e: Enemy, t: number, red: boolean): void {

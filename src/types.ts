@@ -117,6 +117,7 @@ export interface Enemy {
   speed: number
   touch: number
   flash: number
+  arrive: number
   dead: boolean
   resolved: boolean
   mode: number

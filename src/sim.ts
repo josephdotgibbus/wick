@@ -669,6 +669,7 @@ function stepEnemies(g: Game, dt: number): void {
   for (const e of g.enemies) {
     if (e.dead) continue
     e.flash = Math.max(0, e.flash - dt)
+    if (e.arrive < 1) e.arrive = Math.min(1, e.arrive + dt / 0.5)
     let slow = 1
     if (light > 0 && Math.hypot(e.x - g.player.x, e.y - g.player.y) < light) {
       slow = g.mods.haloSlow
@@ -679,7 +680,7 @@ function stepEnemies(g: Game, dt: number): void {
     else if (e.kind === 'cinder') stepCinder(g, e, dt, haste * slow, strong)
     else stepWisp(g, e, dt, haste * slow, strong)
     e.trail -= dt
-    if (e.kind !== 'boss' && e.trail <= 0) {
+    if (e.kind !== 'boss' && e.arrive >= 1 && e.trail <= 0) {
       const speed = Math.hypot(e.vx, e.vy)
       if (speed > 12) {
         e.trail = 0.07
@@ -976,6 +977,7 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     speed: base.speed,
     touch: base.touch,
     flash: 0,
+    arrive: 0,
     dead: false,
     resolved: false,
     mode: 0,
