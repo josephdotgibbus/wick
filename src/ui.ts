@@ -274,7 +274,8 @@ function syncLevel(g: Game): void {
     img.src = offer.icon
     const rarity = document.createElement('span')
     rarity.className = 'rarity'
-    rarity.textContent = offer.kind === 'curse' ? `Curse ${roman(offer.rank)}` : `Rank ${roman(offer.rank)}`
+    rarity.textContent =
+      offer.kind === 'curse' ? `Curse ${roman(offer.rank)}` : offer.max <= 1 ? 'Relic' : `Rank ${roman(offer.rank)}`
     const name = document.createElement('strong')
     name.textContent = offer.name
     const text = document.createElement('p')

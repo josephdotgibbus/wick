@@ -56,6 +56,16 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   }
   for (const e of g.enemies) drawEnemy(ctx, e, view.wall)
   for (const b of g.bullets) drawBullet(ctx, b)
+  drawOrbit(ctx, g)
+  if (g.mods.haloDps > 0) {
+    ctx.beginPath()
+    ctx.arc(g.player.x, g.player.y, light, 0, TAU)
+    ctx.strokeStyle = 'rgba(255, 140, 60, 0.32)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 7])
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
   drawFlame(ctx, g, view.wall)
   for (const p of g.particles) {
     ctx.globalAlpha = Math.max(0, p.life / p.max)
@@ -329,12 +339,40 @@ function drawBoss(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
   }
 }
 
+function drawOrbit(ctx: CanvasRenderingContext2D, g: Game): void {
+  const n = g.mods.orbit
+  if (n <= 0) return
+  const radius = 40
+  for (let i = 0; i < n; i++) {
+    const ang = g.orbitAng + (i / n) * TAU
+    const x = g.player.x + Math.cos(ang) * radius
+    const y = g.player.y + Math.sin(ang) * radius
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(ang)
+    ctx.fillStyle = '#f4ebe3'
+    ctx.beginPath()
+    ctx.moveTo(8, 0)
+    ctx.lineTo(-5, 3.2)
+    ctx.lineTo(-2, 0)
+    ctx.lineTo(-5, -3.2)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+}
+
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
   const ang = Math.atan2(b.vy, b.vx)
   ctx.save()
   ctx.translate(b.x, b.y)
   ctx.rotate(ang)
   if (b.friendly) {
+    const span = b.max > 0 ? b.life / b.max : 1
+    const fade = span > 0.34 ? 1 : Math.max(0, span / 0.34)
+    ctx.globalAlpha = fade
+    const shrink = 0.7 + 0.3 * fade
+    ctx.scale(shrink, shrink)
     const len = 8 + b.r * 1.6
     const grad = ctx.createLinearGradient(-len, 0, b.r, 0)
     grad.addColorStop(0, 'rgba(255, 170, 70, 0)')

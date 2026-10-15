@@ -3,20 +3,21 @@ export type Kind = 'wisp' | 'cinder' | 'boss'
 export type UpgradeId =
   | 'kindling'
   | 'split'
-  | 'lance'
-  | 'hearth'
-  | 'slowburn'
-  | 'lure'
-  | 'step'
-  | 'ward'
-  | 'bellows'
-  | 'thorn'
-  | 'tell'
-  | 'trail'
-  | 'twin'
-  | 'glass'
-  | 'coal'
+  | 'moth'
+  | 'orbit'
+  | 'pop'
+  | 'leech'
+  | 'brand'
   | 'pierce'
+  | 'back'
+  | 'nova'
+  | 'glass'
+  | 'hearth'
+  | 'step'
+  | 'slowburn'
+  | 'halo'
+  | 'coal'
+  | 'lure'
 
 export type CurseId = 'heavy' | 'thin' | 'hungry' | 'brittle' | 'dim' | 'sluggish' | 'swarm' | 'short'
 
@@ -40,8 +41,6 @@ export interface Mods {
   pierce: number
   forks: number
   forkFrac: number
-  twin: boolean
-  twinFrac: number
   fireInterval: number
   maxHeat: number
   decayMult: number
@@ -51,15 +50,28 @@ export interface Mods {
   light: number
   burstCd: number
   burstCost: number
-  trail: boolean
-  trailDps: number
-  bossBonus: number
-  tellBonus: number
-  roundHeal: number
   sparkValue: number
   extraSpawns: number
+  homing: number
+  orbit: number
+  orbitDmg: number
+  pop: boolean
+  popFrac: number
+  popCount: number
+  popPatch: boolean
   brand: boolean
-  burstBoss: number
+  brandForks: boolean
+  leech: number
+  back: boolean
+  backFrac: number
+  backSplits: boolean
+  novaEvery: number
+  novaFrac: number
+  haloDps: number
+  haloSlow: number
+  lastCoal: boolean
+  coalRing: boolean
+  collectRing: number
 }
 
 export interface Offer {
@@ -126,12 +138,14 @@ export interface Bullet {
   vx: number
   vy: number
   life: number
+  max: number
   damage: number
   pierce: number
   r: number
   hit: number[]
   friendly: boolean
   brand: boolean
+  child: boolean
 }
 
 export interface Spark {
@@ -283,6 +297,9 @@ export interface Game {
   burstT: number
   burstAng: number
   fireCd: number
+  shotN: number
+  coalSpent: boolean
+  orbitAng: number
   trailCd: number
   brambleCd: number
   enemies: Enemy[]

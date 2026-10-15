@@ -1,7 +1,25 @@
 import { chooseUpgrade, createGame, startRun, tick } from '../src/sim.ts'
 import type { Game, UpgradeId } from '../src/types.ts'
 
-const prefer: UpgradeId[] = ['kindling', 'lance', 'hearth', 'slowburn', 'lure', 'step', 'pierce', 'split', 'thorn', 'tell', 'trail', 'coal', 'twin', 'glass']
+const prefer: UpgradeId[] = [
+  'kindling',
+  'hearth',
+  'moth',
+  'orbit',
+  'leech',
+  'halo',
+  'split',
+  'pierce',
+  'pop',
+  'lure',
+  'slowburn',
+  'step',
+  'brand',
+  'coal',
+  'back',
+  'nova',
+  'glass',
+]
 
 function pick(g: Game): void {
   let best = 0

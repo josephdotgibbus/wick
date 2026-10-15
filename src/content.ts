@@ -3,20 +3,21 @@ import type { Curses, CurseId, EventId, Kind, Mods, Offer, OfferId, Ranks, Upgra
 export const UPGRADES: UpgradeId[] = [
   'kindling',
   'split',
-  'lance',
-  'hearth',
-  'slowburn',
-  'lure',
-  'step',
-  'ward',
-  'bellows',
-  'thorn',
-  'tell',
-  'trail',
-  'twin',
-  'glass',
-  'coal',
+  'moth',
+  'orbit',
+  'pop',
+  'leech',
+  'brand',
   'pierce',
+  'back',
+  'nova',
+  'glass',
+  'hearth',
+  'step',
+  'slowburn',
+  'halo',
+  'coal',
+  'lure',
 ]
 
 export const CURSES: CurseId[] = ['heavy', 'thin', 'hungry', 'brittle', 'dim', 'sluggish', 'swarm', 'short']
@@ -26,61 +27,64 @@ export const EVENTS: EventId[] = ['strong', 'slip', 'rubble', 'haste', 'starve',
 const MAX_UP: Record<UpgradeId, number> = {
   kindling: 3,
   split: 2,
-  lance: 3,
-  hearth: 2,
-  slowburn: 2,
-  lure: 2,
-  step: 2,
-  ward: 2,
-  bellows: 2,
-  thorn: 2,
-  tell: 2,
-  trail: 2,
-  twin: 1,
-  glass: 1,
-  coal: 1,
+  moth: 1,
+  orbit: 1,
+  pop: 1,
+  leech: 1,
+  brand: 1,
   pierce: 2,
+  back: 1,
+  nova: 1,
+  glass: 1,
+  hearth: 2,
+  step: 2,
+  slowburn: 2,
+  halo: 1,
+  coal: 1,
+  lure: 1,
 }
 
 const MAX_CURSE = 2
 
 const WEIGHT: Record<UpgradeId, number> = {
-  kindling: 10,
-  lance: 9,
-  hearth: 9,
-  slowburn: 9,
-  lure: 8,
+  kindling: 9,
+  hearth: 8,
+  slowburn: 8,
   step: 8,
-  ward: 7,
-  bellows: 7,
-  pierce: 7,
-  split: 5,
-  thorn: 5,
-  tell: 5,
-  trail: 5,
-  coal: 4,
-  twin: 3.2,
-  glass: 2.4,
+  split: 7,
+  pierce: 6.5,
+  lure: 6,
+  moth: 5,
+  orbit: 5,
+  leech: 5,
+  brand: 5,
+  halo: 4.6,
+  pop: 4.4,
+  back: 4,
+  coal: 3.4,
+  nova: 3.2,
+  glass: 2.5,
 }
 
 export function emptyRanks(): Ranks {
   return {
     kindling: 0,
     split: 0,
-    lance: 0,
-    hearth: 0,
-    slowburn: 0,
-    lure: 0,
-    step: 0,
-    ward: 0,
-    bellows: 0,
-    thorn: 0,
-    tell: 0,
-    trail: 0,
-    twin: 0,
-    glass: 0,
-    coal: 0,
+    moth: 0,
+    orbit: 0,
+    pop: 0,
+    leech: 0,
+    brand: 0,
     pierce: 0,
+    back: 0,
+    nova: 0,
+    glass: 0,
+    hearth: 0,
+    step: 0,
+    slowburn: 0,
+    halo: 0,
+    coal: 0,
+    lure: 0,
   }
 }
 
@@ -93,23 +97,25 @@ export function iconFor(id: string): string {
   const ember = '#ff6a2c'
   const gold = '#f0b45a'
   const curse = '#e15a5a'
+  const ash = '#2a201c'
   const body: Record<string, string> = {
-    kindling: `<circle cx="32" cy="36" r="8" fill="${ember}"/><path d="M32 8 L36 22 H28 Z" fill="${gold}"/>`,
-    split: `<path d="M32 50 L32 30" stroke="${ink}" stroke-width="3"/><path d="M32 30 L18 14 M32 30 L46 14" stroke="${ember}" stroke-width="3"/>`,
-    lance: `<path d="M12 32 H44" stroke="${gold}" stroke-width="3"/><path d="M40 24 L54 32 L40 40" fill="${ember}"/>`,
-    hearth: `<rect x="16" y="28" width="32" height="20" rx="3" fill="none" stroke="${ink}" stroke-width="3"/><path d="M32 40 V18" stroke="${ember}" stroke-width="3"/>`,
-    slowburn: `<circle cx="32" cy="32" r="16" fill="none" stroke="${gold}" stroke-width="3" stroke-dasharray="4 4"/>`,
-    lure: `<circle cx="32" cy="32" r="6" fill="${ember}"/><circle cx="32" cy="32" r="16" fill="none" stroke="${gold}" stroke-width="2"/>`,
-    step: `<path d="M14 40 L28 24 L36 34 L50 16" fill="none" stroke="${ink}" stroke-width="3"/>`,
-    ward: `<path d="M32 10 L50 18 V34 C50 46 32 54 32 54 C32 54 14 46 14 34 V18 Z" fill="none" stroke="${gold}" stroke-width="3"/>`,
-    bellows: `<path d="M16 40 L28 20 H44 L52 40 Z" fill="none" stroke="${ember}" stroke-width="3"/>`,
-    thorn: `<circle cx="32" cy="32" r="8" fill="#2a201c"/><path d="M32 8 L36 20 L28 20 Z M32 56 L36 44 L28 44 Z M8 32 L20 28 L20 36 Z M56 32 L44 28 L44 36 Z" fill="${ink}"/>`,
-    tell: `<circle cx="24" cy="28" r="4" fill="${curse}"/><circle cx="40" cy="28" r="4" fill="${curse}"/><path d="M18 42 Q32 52 46 42" fill="none" stroke="${ink}" stroke-width="3"/>`,
-    trail: `<circle cx="16" cy="40" r="4" fill="${ember}" opacity="0.5"/><circle cx="30" cy="32" r="5" fill="${ember}" opacity="0.75"/><circle cx="46" cy="22" r="6" fill="${gold}"/>`,
-    twin: `<circle cx="24" cy="32" r="7" fill="${ember}"/><circle cx="42" cy="28" r="5" fill="${gold}"/>`,
-    glass: `<path d="M32 10 L48 50 H16 Z" fill="none" stroke="${ink}" stroke-width="3"/>`,
-    coal: `<circle cx="32" cy="34" r="12" fill="#2a201c" stroke="${gold}" stroke-width="3"/>`,
-    pierce: `<path d="M10 32 H54" stroke="${ink}" stroke-width="3"/><circle cx="22" cy="32" r="4" fill="${ember}"/><circle cx="40" cy="32" r="4" fill="${ember}"/>`,
+    kindling: `<ellipse cx="32" cy="46" rx="14" ry="9" fill="${ash}" stroke="${gold}" stroke-width="2"/><path d="M32 10 C39 20 43 24 36 34 C45 29 44 42 32 44 C20 42 19 29 28 34 C21 24 25 20 32 10 Z" fill="${ember}"/><ellipse cx="32" cy="32" rx="3.5" ry="7" fill="#fff1d2"/>`,
+    split: `<circle cx="32" cy="48" r="6" fill="${ember}"/><path d="M32 42 L16 16 M32 42 L48 16" stroke="${ink}" stroke-width="3" fill="none"/><circle cx="16" cy="14" r="5" fill="${gold}"/><circle cx="48" cy="14" r="5" fill="${ember}"/>`,
+    moth: `<path d="M32 20 C16 8 6 24 16 36 C22 28 28 32 32 38 C36 32 42 28 48 36 C58 24 48 8 32 20 Z" fill="#c9b8ae"/><path d="M32 20 C22 14 16 24 22 32 C28 26 32 30 32 38 C32 30 36 26 42 32 C48 24 42 14 32 20 Z" fill="${ember}"/><ellipse cx="32" cy="42" rx="3" ry="8" fill="${ash}"/><circle cx="29" cy="24" r="1.5" fill="#ff2a22"/><circle cx="35" cy="24" r="1.5" fill="#ff2a22"/>`,
+    orbit: `<circle cx="32" cy="32" r="13" fill="none" stroke="${gold}" stroke-width="2"/><path d="M32 8 L36 18 H28 Z M52 42 L42 38 L46 32 Z M12 42 L22 38 L18 32 Z" fill="${ink}"/><circle cx="32" cy="32" r="4" fill="${ember}"/>`,
+    pop: `<circle cx="30" cy="36" r="13" fill="${ash}"/><path d="M22 30 L32 38 L26 48 M38 24 L34 36 L48 40" stroke="${gold}" stroke-width="2" fill="none"/><circle cx="14" cy="16" r="3.2" fill="${ember}"/><circle cx="50" cy="14" r="2.6" fill="${gold}"/><circle cx="52" cy="28" r="2" fill="#fff1d2"/>`,
+    leech: `<path d="M26 50 C26 38 18 34 24 20 C28 30 36 30 40 20 C46 34 38 38 38 50 Z" fill="${ember}"/><path d="M32 8 C37 16 37 22 32 28 C27 22 27 16 32 8 Z" fill="${gold}"/>`,
+    brand: `<rect x="28" y="6" width="8" height="20" rx="2" fill="#8d8278"/><rect x="16" y="26" width="32" height="24" rx="4" fill="${ash}" stroke="${ember}" stroke-width="3"/><path d="M24 36 H40 M32 30 V44" stroke="${gold}" stroke-width="2.4"/>`,
+    pierce: `<path d="M8 46 L44 12" stroke="${ink}" stroke-width="3"/><path d="M40 8 L56 16 L42 24 Z" fill="#e4dcd4"/><circle cx="16" cy="40" r="3.2" fill="${ember}"/>`,
+    back: `<circle cx="16" cy="32" r="8" fill="${ember}"/><circle cx="48" cy="32" r="6" fill="${gold}"/><path d="M24 32 H40" stroke="${ink}" stroke-width="2.4"/>`,
+    nova: `<circle cx="32" cy="32" r="5" fill="#fff1d2"/><circle cx="32" cy="12" r="3.4" fill="${ember}"/><circle cx="32" cy="52" r="3.4" fill="${ember}"/><circle cx="12" cy="32" r="3.4" fill="${gold}"/><circle cx="52" cy="32" r="3.4" fill="${gold}"/><circle cx="18" cy="18" r="2.8" fill="${ember}"/><circle cx="46" cy="18" r="2.8" fill="${ember}"/><circle cx="18" cy="46" r="2.8" fill="${gold}"/><circle cx="46" cy="46" r="2.8" fill="${gold}"/>`,
+    glass: `<path d="M14 12 H50 V52 H14 Z" fill="none" stroke="#d5e4ee" stroke-width="3"/><path d="M18 16 L32 32 L26 50 M32 32 L48 22" stroke="#d5e4ee" stroke-width="1.6" fill="none"/><path d="M32 42 C37 34 38 32 36 24 C33 32 29 32 26 24 C24 32 27 34 32 42 Z" fill="${ember}"/>`,
+    hearth: `<path d="M32 8 C38 16 40 20 34 28 C40 24 38 36 32 36 C26 36 24 24 30 28 C24 20 26 16 32 8 Z" fill="${ember}"/><rect x="10" y="36" width="44" height="16" rx="2" fill="#3a302c"/><rect x="14" y="40" width="10" height="8" fill="${ash}"/><rect x="27" y="40" width="10" height="8" fill="${ash}"/><rect x="40" y="40" width="10" height="8" fill="${ash}"/>`,
+    step: `<path d="M16 16 H34 V30 H50 V46 H12 V28 H16 Z" fill="${ash}" stroke="${ink}" stroke-width="2"/><circle cx="20" cy="42" r="2.2" fill="${ember}"/><circle cx="30" cy="44" r="2.2" fill="${gold}"/><circle cx="42" cy="42" r="2.2" fill="${ember}"/>`,
+    slowburn: `<circle cx="32" cy="34" r="16" fill="none" stroke="#6e645c" stroke-width="7"/><circle cx="32" cy="34" r="16" fill="none" stroke="${gold}" stroke-width="2" stroke-dasharray="3 7"/><path d="M32 26 C36 31 36 33 32 40 C28 33 28 31 32 26 Z" fill="${ember}"/>`,
+    halo: `<circle cx="32" cy="34" r="18" fill="none" stroke="${ember}" stroke-width="3"/><circle cx="32" cy="34" r="11" fill="none" stroke="${gold}" stroke-width="1.6" stroke-dasharray="2 3"/><path d="M32 24 C36 30 36 32 32 42 C28 32 28 30 32 24 Z" fill="#fff1d2"/>`,
+    coal: `<ellipse cx="32" cy="38" rx="16" ry="12" fill="#14100e" stroke="${gold}" stroke-width="2"/><path d="M20 36 L32 28 L28 42 L44 32" stroke="${gold}" stroke-width="2" fill="none"/><circle cx="48" cy="18" r="3" fill="${ember}"/>`,
+    lure: `<path d="M18 16 V34 C18 48 46 48 46 34 V16" fill="none" stroke="${curse}" stroke-width="8"/><rect x="14" y="12" width="10" height="8" fill="${ink}"/><rect x="40" y="12" width="10" height="8" fill="${ink}"/><circle cx="32" cy="14" r="3.2" fill="${ember}"/>`,
     heavy: `<rect x="18" y="26" width="28" height="18" fill="${curse}"/>`,
     thin: `<path d="M32 12 V52" stroke="${curse}" stroke-width="2"/>`,
     hungry: `<path d="M16 36 Q32 18 48 36 Q32 28 16 36" fill="${curse}"/>`,
@@ -119,7 +125,7 @@ export function iconFor(id: string): string {
     swarm: `<circle cx="22" cy="34" r="5" fill="${curse}"/><circle cx="36" cy="28" r="5" fill="${curse}"/><circle cx="42" cy="40" r="4" fill="${curse}"/>`,
     short: `<path d="M18 24 H46 L40 46 H24 Z" fill="none" stroke="${curse}" stroke-width="3"/>`,
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#1a1411"/>${body[id] ?? ''}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#16110e"/>${body[id] ?? ''}</svg>`
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
@@ -129,22 +135,23 @@ interface Blurb {
 }
 
 const UPGRADE_COPY: Record<UpgradeId, Blurb> = {
-  kindling: { name: 'Kindling', text: (n) => `Sparks hit harder. Rank ${n}. The mote grows with the wound it can make.` },
-  split: { name: 'Split wick', text: (n) => `Each spark sheds a smaller sister. Rank ${n}.` },
-  lance: { name: 'Lance', text: (n) => `Sparks fly faster and live longer. Rank ${n}.` },
-  hearth: { name: 'Hearth', text: (n) => `A deeper well of heat, restored a little now. Rank ${n}.` },
-  slowburn: { name: 'Slow burn', text: (n) => `The wick starves more slowly. Rank ${n}.` },
-  lure: { name: 'Ember lure', text: (n) => `Map sparks pull from farther and feed more. Rank ${n}.` },
-  step: { name: 'Cinderstep', text: (n) => `The flame moves quicker. Rank ${n}.` },
-  ward: { name: 'Ash ward', text: (n) => `Touches from the dark take less heat. Rank ${n}.` },
-  bellows: { name: 'Bellows', text: (n) => `Burst returns sooner and spends less. Rank ${n}.` },
-  thorn: { name: 'Thornbreak', text: (n) => `Sparks bite bosses harder. Rank ${n}.` },
-  tell: { name: 'Open eye', text: (n) => `Telegraphs and a shut briar take extra pain. Rank ${n}.` },
-  trail: { name: 'Ash trail', text: (n) => `Moving leaves a short burn on the ground. Rank ${n}.` },
-  twin: { name: 'Twin spark', text: () => 'A second spark leaves at a slight angle.' },
-  glass: { name: 'Glass wick', text: () => 'Sparks hit much harder. The wick starves faster.' },
-  coal: { name: 'Round coal', text: () => 'Clearing a round gives a lump of heat back.' },
-  pierce: { name: 'Pierce', text: (n) => `Sparks pass through another body. Rank ${n}.` },
+  kindling: { name: 'Kindling', text: (n) => `Sparks hit harder, and the mote swells with the hurt it can do. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
+  split: { name: 'Cleft spark', text: (n) => `Each spark sheds ${n > 1 ? 'two smaller sisters' : 'a smaller sister'}.` },
+  moth: { name: 'Moth', text: () => 'Sparks bend toward the nearest shadow.' },
+  orbit: { name: 'Tooth ring', text: () => 'Three teeth circle the wick and chew whatever they touch.' },
+  pop: { name: 'Cracked coal', text: () => 'A spark that dies bursts into cinders.' },
+  leech: { name: 'Wickdrink', text: () => 'A kill feeds a sip of heat back into the wick.' },
+  brand: { name: 'Hot brand', text: () => 'A hit leaves a patch of fire burning on the body.' },
+  pierce: { name: 'Needle', text: (n) => `Sparks pass through ${n > 1 ? 'more bodies' : 'another body'}.` },
+  back: { name: 'Backdraft', text: () => 'A weaker spark leaves backward.' },
+  nova: { name: 'Ring breath', text: () => 'Every fourth spark is a ring of eight.' },
+  glass: { name: 'Glass wick', text: () => 'Sparks hit much harder. Hunger comes on faster.' },
+  hearth: { name: 'Hearth', text: (n) => `The well of heat is deeper. A little returns now. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
+  step: { name: 'Cinderstep', text: (n) => `The flame moves quicker. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
+  slowburn: { name: 'Slow burn', text: (n) => `Heat leaves more slowly. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
+  halo: { name: 'Ash halo', text: () => 'Shadows inside the light slow down and scorch.' },
+  coal: { name: 'Last coal', text: () => 'The first time a round would snuff you, a coal cracks and the wick stays.' },
+  lure: { name: 'Lodestone', text: () => 'Map sparks rush in. Picking one up scorches the dark nearby.' },
 }
 
 const CURSE_COPY: Record<CurseId, Blurb> = {
@@ -159,20 +166,23 @@ const CURSE_COPY: Record<CurseId, Blurb> = {
 }
 
 const PARTNERS: Partial<Record<UpgradeId, UpgradeId[]>> = {
-  kindling: ['split', 'lance', 'twin'],
-  split: ['kindling', 'pierce'],
-  lance: ['kindling'],
-  hearth: ['slowburn', 'glass'],
-  slowburn: ['hearth', 'lure'],
-  lure: ['slowburn'],
-  step: ['trail'],
-  trail: ['step'],
-  bellows: ['thorn'],
-  thorn: ['bellows', 'tell'],
-  tell: ['thorn'],
-  twin: ['kindling'],
+  kindling: ['split', 'orbit', 'pop'],
+  split: ['kindling', 'moth', 'back'],
+  moth: ['split', 'brand', 'pop'],
+  orbit: ['kindling'],
+  pop: ['kindling', 'brand', 'moth'],
+  leech: ['hearth', 'coal', 'lure'],
+  brand: ['pop', 'moth'],
+  pierce: ['nova'],
+  back: ['split'],
+  nova: ['pierce'],
   glass: ['hearth'],
-  pierce: ['split'],
+  hearth: ['glass', 'leech', 'slowburn'],
+  step: ['halo'],
+  slowburn: ['halo', 'hearth'],
+  halo: ['slowburn', 'step'],
+  coal: ['leech'],
+  lure: ['leech'],
 }
 
 export interface Synergy {
@@ -182,16 +192,22 @@ export interface Synergy {
 }
 
 export const SYNERGIES: Synergy[] = [
-  { name: 'Scatter', a: 'kindling', b: 'split' },
-  { name: 'Brand', a: 'kindling', b: 'lance' },
-  { name: 'Kiln', a: 'hearth', b: 'slowburn' },
-  { name: 'Kept ember', a: 'lure', b: 'slowburn' },
-  { name: 'Wildfire', a: 'step', b: 'trail' },
-  { name: 'Constellation', a: 'twin', b: 'kindling' },
+  { name: 'Cleft coal', a: 'kindling', b: 'split' },
+  { name: 'Led moths', a: 'moth', b: 'split' },
+  { name: 'Jaw', a: 'kindling', b: 'orbit' },
+  { name: 'Shrapnel', a: 'kindling', b: 'pop' },
+  { name: 'Seeking cinders', a: 'moth', b: 'pop' },
+  { name: 'Fed flame', a: 'leech', b: 'hearth' },
   { name: 'Banked glass', a: 'glass', b: 'hearth' },
-  { name: 'Split rib', a: 'bellows', b: 'thorn' },
-  { name: 'Through ash', a: 'pierce', b: 'split' },
-  { name: 'Open ribs', a: 'tell', b: 'thorn' },
+  { name: 'Kiln light', a: 'halo', b: 'slowburn' },
+  { name: 'Wild light', a: 'step', b: 'halo' },
+  { name: 'Cinderfield', a: 'brand', b: 'pop' },
+  { name: 'Second swallow', a: 'coal', b: 'leech' },
+  { name: 'Lodestone sip', a: 'lure', b: 'leech' },
+  { name: 'Crossdraft', a: 'back', b: 'split' },
+  { name: 'Spoked wheel', a: 'nova', b: 'pierce' },
+  { name: 'Hot moths', a: 'brand', b: 'moth' },
+  { name: 'Kept hearth', a: 'hearth', b: 'slowburn' },
 ]
 
 export function activeSynergies(ranks: Ranks): string[] {
@@ -200,50 +216,94 @@ export function activeSynergies(ranks: Ranks): string[] {
 
 export function modsFrom(ranks: Ranks, curses: Curses): Mods {
   const mods: Mods = {
-    shotDamage: 8 + ranks.kindling * 3.4,
-    shotSpeed: 320 + ranks.lance * 70,
-    shotLife: 0.52 + ranks.lance * 0.12,
+    shotDamage: 8 + ranks.kindling * 4.2,
+    shotSpeed: 340,
+    shotLife: 0.58,
     pierce: ranks.pierce,
     forks: ranks.split,
     forkFrac: 0.55,
-    twin: ranks.twin > 0,
-    twinFrac: 0.7,
     fireInterval: 0.46,
-    maxHeat: 100 + ranks.hearth * 18,
-    decayMult: 1,
-    magnet: 28 + ranks.lure * 36,
-    speed: 198 + ranks.step * 30,
-    touchMult: Math.pow(0.84, ranks.ward),
+    maxHeat: 100 + ranks.hearth * 22,
+    decayMult: Math.pow(0.82, ranks.slowburn),
+    magnet: 28 + (ranks.lure > 0 ? 48 : 0),
+    speed: 198 + ranks.step * 34,
+    touchMult: 1,
     light: 86,
-    burstCd: Math.max(0.45, 1.15 - ranks.bellows * 0.22),
-    burstCost: Math.max(1, 4 - ranks.bellows * 0.6),
-    trail: ranks.trail > 0,
-    trailDps: 5 + ranks.trail * 4,
-    bossBonus: 1 + ranks.thorn * 0.32,
-    tellBonus: 1 + ranks.tell * 0.4,
-    roundHeal: ranks.coal > 0 ? 16 : 0,
-    sparkValue: 7 + ranks.lure * 2,
+    burstCd: 1.15,
+    burstCost: 4,
+    sparkValue: 7 + (ranks.lure > 0 ? 3 : 0),
     extraSpawns: 0,
-    brand: false,
-    burstBoss: 1,
+    homing: ranks.moth > 0 ? 4.6 : 0,
+    orbit: ranks.orbit > 0 ? 3 : 0,
+    orbitDmg: ranks.orbit > 0 ? 28 : 0,
+    pop: ranks.pop > 0,
+    popFrac: ranks.pop > 0 ? 0.42 : 0,
+    popCount: ranks.pop > 0 ? 6 : 0,
+    popPatch: false,
+    brand: ranks.brand > 0,
+    brandForks: false,
+    leech: ranks.leech > 0 ? 4.5 : 0,
+    back: ranks.back > 0,
+    backFrac: 0.62,
+    backSplits: false,
+    novaEvery: ranks.nova > 0 ? 4 : 0,
+    novaFrac: 0.5,
+    haloDps: ranks.halo > 0 ? 7 : 0,
+    haloSlow: ranks.halo > 0 ? 0.72 : 1,
+    lastCoal: ranks.coal > 0,
+    coalRing: false,
+    collectRing: ranks.lure > 0 ? 52 : 0,
   }
-  mods.decayMult *= Math.pow(0.84, ranks.slowburn)
   if (ranks.glass > 0) {
-    mods.shotDamage *= 1.7
-    mods.decayMult *= 1.5
+    mods.shotDamage *= 1.82
+    mods.decayMult *= 1.55
   }
-  if (ranks.kindling > 0 && ranks.split > 0) mods.forkFrac = 0.88
-  if (ranks.kindling > 0 && ranks.lance > 0) mods.brand = true
+  if (ranks.kindling > 0 && ranks.split > 0) mods.forkFrac = 0.92
+  if (ranks.moth > 0 && ranks.split > 0) {
+    mods.homing = 8
+    mods.forkFrac = Math.max(mods.forkFrac, 0.85)
+  }
+  if (ranks.kindling > 0 && ranks.orbit > 0) {
+    mods.orbit += 1
+    mods.orbitDmg *= 1.65
+  }
+  if (ranks.kindling > 0 && ranks.pop > 0) {
+    mods.popFrac = 0.9
+    mods.popCount = 8
+  }
+  if (ranks.moth > 0 && ranks.pop > 0) {
+    mods.homing = Math.max(mods.homing, 6.4)
+    mods.popFrac = Math.max(mods.popFrac, 0.7)
+  }
+  if (ranks.leech > 0 && ranks.hearth > 0) mods.leech *= 2
+  if (ranks.glass > 0 && ranks.hearth > 0) mods.decayMult /= 1.55
+  if (ranks.halo > 0 && ranks.slowburn > 0) {
+    mods.haloDps *= 1.6
+    mods.haloSlow = 0.55
+    mods.decayMult *= 0.84
+  }
+  if (ranks.step > 0 && ranks.halo > 0) mods.light *= 1.28
+  if (ranks.brand > 0 && ranks.pop > 0) mods.popPatch = true
+  if (ranks.coal > 0 && ranks.leech > 0) {
+    mods.coalRing = true
+    mods.leech += 2
+  }
+  if (ranks.lure > 0 && ranks.leech > 0) {
+    mods.collectRing = 84
+    mods.leech += 1.5
+    mods.magnet += 24
+    mods.sparkValue += 2
+  }
+  if (ranks.back > 0 && ranks.split > 0) mods.backSplits = true
+  if (ranks.nova > 0 && ranks.pierce > 0) mods.novaFrac = 0.9
+  if (ranks.brand > 0 && ranks.moth > 0) {
+    mods.homing *= 1.35
+    mods.brandForks = true
+  }
   if (ranks.hearth > 0 && ranks.slowburn > 0) {
     mods.decayMult *= 0.82
-    mods.roundHeal += 6
+    mods.maxHeat += 12
   }
-  if (ranks.lure > 0 && ranks.slowburn > 0) mods.sparkValue += 3
-  if (ranks.step > 0 && ranks.trail > 0) mods.trailDps *= 1.65
-  if (ranks.twin > 0 && ranks.kindling > 0) mods.twinFrac = 1
-  if (ranks.glass > 0 && ranks.hearth > 0) mods.decayMult *= 1.2 / 1.5
-  if (ranks.bellows > 0 && ranks.thorn > 0) mods.burstBoss = 1.55
-  if (ranks.pierce > 0 && ranks.split > 0) mods.pierce += 1
 
   mods.speed *= Math.pow(0.84, curses.heavy)
   mods.maxHeat *= Math.pow(0.84, curses.thin)
@@ -324,7 +384,7 @@ export function rollOffers(rng: () => number, ranks: Ranks, curses: Curses, kind
 
 function partnerBias(id: UpgradeId, ranks: Ranks): number {
   const mates = PARTNERS[id] ?? []
-  return mates.some((mate) => ranks[mate] > 0) ? 6 : 0
+  return mates.some((mate) => ranks[mate] > 0) ? 9 : 0
 }
 
 function upgradeOffer(id: UpgradeId, ranks: Ranks): Offer {
