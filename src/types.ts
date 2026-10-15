@@ -86,6 +86,11 @@ export interface SpikeSlot {
   ang: number
 }
 
+export interface Incoming {
+  kind: Kind
+  wait: number
+}
+
 export interface Enemy {
   id: number
   kind: Kind
@@ -281,6 +286,7 @@ export interface Game {
   trailCd: number
   brambleCd: number
   enemies: Enemy[]
+  incoming: Incoming[]
   bullets: Bullet[]
   sparks: Spark[]
   patches: Patch[]

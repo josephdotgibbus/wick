@@ -282,20 +282,24 @@ function drawBoss(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
   ctx.fillStyle = 'rgba(8, 6, 8, 0.4)'
   ctx.fill()
   if (!shut) {
+    const n = Math.max(1, e.spikes.length)
     e.spikes.forEach((slot, i) => {
-      const grow = slot.cool > 0.35 ? 0 : slot.warn > 0 ? 1 : 1 - slot.cool / 0.35
-      if (grow <= 0.05) return
-      const ang = slot.ang
-      const len = e.r * (0.45 + grow * 0.7)
+      const aimed = slot.warn > 0
+      const grow = slot.cool > 0 ? Math.max(0, 1 - slot.cool / 1.85) : 1
+      if (!aimed && grow < 0.06) return
+      const ang = aimed ? slot.ang : e.aim + (i / n) * TAU
+      const len = e.r * (0.72 + (aimed ? 1 : grow) * 0.55)
       ctx.save()
       ctx.translate(e.x, e.y)
       ctx.rotate(ang)
       ctx.beginPath()
-      ctx.moveTo(e.r * 0.7, 0)
-      ctx.lineTo(e.r * 0.7 + len, -4.5)
-      ctx.lineTo(e.r * 0.7 + len, 4.5)
+      ctx.moveTo(e.r * 0.46, -3.2)
+      ctx.lineTo(e.r * 0.5 + len, -1.4)
+      ctx.lineTo(e.r * 0.5 + len + 7, 0)
+      ctx.lineTo(e.r * 0.5 + len, 1.4)
+      ctx.lineTo(e.r * 0.46, 3.2)
       ctx.closePath()
-      ctx.fillStyle = i % 2 === 0 ? '#d9cfc6' : '#8d8278'
+      ctx.fillStyle = i % 2 === 0 ? '#e4dcd4' : '#9a8e84'
       ctx.fill()
       ctx.restore()
     })
@@ -345,11 +349,13 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
     ctx.arc(len * 0.45, 0, Math.max(1.3, b.r * 0.42), 0, TAU)
     ctx.fill()
   } else {
-    ctx.fillStyle = '#f2e6dc'
+    const len = 11 + b.r * 2.4
+    ctx.fillStyle = '#f4ebe3'
     ctx.beginPath()
-    ctx.moveTo(7, 0)
-    ctx.lineTo(-5, 3.2)
-    ctx.lineTo(-5, -3.2)
+    ctx.moveTo(len, 0)
+    ctx.lineTo(-len * 0.42, 3.6)
+    ctx.lineTo(-len * 0.16, 0)
+    ctx.lineTo(-len * 0.42, -3.6)
     ctx.closePath()
     ctx.fill()
   }

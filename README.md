@@ -13,7 +13,9 @@ A boss-rush survival game. You are a wick in an endless dark. Heat is your life.
 - **Sparks:** small flames on the ground restore heat. There is no score and no streak.
 - **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss.
 
-Wisps are small, red-eyed, and leave a cloudy trail. After round 3, a red one sometimes stops and draws a laser. Stones block you. Pits and bramble get worse as the rounds climb. From round 6 on, half of the rounds twist: slick ash, extra rock, a thicker dark.
+Wisps are small, red-eyed, and leave a cloudy trail. They arrive one by one, and later rounds send more of them. After round 3, a red one sometimes stops and paints a warning line, then fires a thin laser. Only the laser burns. Stones block you. Pits and bramble get worse as the rounds climb. From round 6 on, half of the rounds twist: slick ash, extra rock, a thicker dark.
+
+The Briar's spikes sit in its body and spin with it. They slow, aim at random, and then fly a long way.
 
 The same seed deals the same land. Blessings unlock from the deepest round and change the next start. Everything is saved in this browser.
 

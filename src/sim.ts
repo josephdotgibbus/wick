@@ -70,6 +70,7 @@ export function createGame(): Game {
     trailCd: 0,
     brambleCd: 0,
     enemies: [],
+    incoming: [],
     bullets: [],
     sparks: [],
     patches: [],
@@ -110,6 +111,7 @@ export function enterMenu(g: Game): void {
   g.heat = g.mods.maxHeat || 100
   g.banner = null
   g.enemies = []
+  g.incoming = []
   g.bullets = []
   if (g.decor.length === 0) {
     for (let i = 0; i < 14; i++) {
@@ -251,6 +253,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
   stepShots(g, dt)
   stepBullets(g, dt)
   stepPatches(g, dt)
+  stepIncoming(g, dt)
   stepEnemies(g, dt)
   resolveDeaths(g)
   watchClear(g, dt)
@@ -273,27 +276,38 @@ function beginRound(g: Game): void {
     g.banner = { title: copy.title, sub: copy.sub, life: 3.2 }
     g.events.push({ type: 'level' })
   } else if (g.round % 5 === 0) {
-    g.banner = { title: 'The Briar', sub: 'A larger dark, full of spikes.', life: 3.2 }
+    g.banner = { title: 'The Briar', sub: 'Spikes ride its body, then tear loose.', life: 3.2 }
   } else if (g.round === 1) {
     g.banner = { title: 'Round 1', sub: 'Wisps with red eyes. Do not let the wick go out.', life: 2.8 }
   } else {
-    g.banner = { title: `Round ${g.round}`, sub: 'Clear every shadow that arrived.', life: 2.2 }
+    g.banner = { title: `Round ${g.round}`, sub: 'Shadows arrive slowly. Clear every one.', life: 2.2 }
     g.events.push({ type: 'level' })
   }
   if (g.round > 1) g.hint = ''
   scatterTerrain(g)
   if (g.mods.roundHeal > 0 && g.round > 1) g.heat = Math.min(g.mods.maxHeat, g.heat + g.mods.roundHeal)
+  g.incoming = []
 
   if (g.round % 5 === 0) {
     spawnBoss(g)
     g.events.push({ type: 'boss' })
     return
   }
-  const count = Math.min(26, 3 + g.round + g.mods.extraSpawns + (g.event === 'surge' ? 4 : 0))
+  const count = Math.min(42, 7 + g.round * 3 + g.mods.extraSpawns + (g.event === 'surge' ? 4 : 0))
+  const gap = Math.max(0.62, 1.15 - g.round * 0.035)
   for (let i = 0; i < count; i++) {
     const cinder = g.round >= 4 && g.rng() < Math.min(0.34, 0.12 + (g.round - 3) * 0.025)
-    spawnKind(g, cinder ? 'cinder' : 'wisp', 240 + g.rng() * 120)
+    g.incoming.push({ kind: cinder ? 'cinder' : 'wisp', wait: i === 0 ? 0.6 : gap })
   }
+}
+
+function stepIncoming(g: Game, dt: number): void {
+  const next = g.incoming[0]
+  if (!next) return
+  next.wait -= dt
+  if (next.wait > 0) return
+  g.incoming.shift()
+  spawnKind(g, next.kind, 260 + g.rng() * 140)
 }
 
 function scatterTerrain(g: Game): void {
@@ -319,7 +333,7 @@ function placeRing(g: Game, r: number, minDist: number): Obstacle {
 }
 
 function watchClear(g: Game, dt: number): void {
-  if (g.enemies.some((e) => !e.dead)) {
+  if (g.incoming.length > 0 || g.enemies.some((e) => !e.dead)) {
     g.clearT = -1
     return
   }
@@ -573,32 +587,44 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number, strong: number
   if (e.mode === 1) {
     e.vx = 0
     e.vy = 0
-    if (e.timer <= 0) {
-      e.mode = 2
-      e.timer = 0.18
-      g.beams.push({
-        x: e.x,
-        y: e.y,
-        ang: e.aim,
-        len: 360,
-        width: 3,
-        life: 0.18,
-        max: 0.18,
-        color: 'rgba(255, 70, 48, 0.9)',
-      })
-      g.events.push({ type: 'beam' })
-    }
-    if (!e.didHit && distToSeg(g.player.x, g.player.y, e.x, e.y, e.x + Math.cos(e.aim) * 360, e.y + Math.sin(e.aim) * 360) < 8) {
-      e.didHit = true
-      hurt(g, 12 * strong, 'a red glare')
-    }
-    return
+    if (e.timer > 0) return
+    e.mode = 2
+    e.timer = 0.18
+    e.didHit = false
+    g.beams.push({
+      x: e.x,
+      y: e.y,
+      ang: e.aim,
+      len: 360,
+      width: 3,
+      life: 0.18,
+      max: 0.18,
+      color: 'rgba(255, 70, 48, 0.9)',
+    })
+    g.events.push({ type: 'beam' })
+  }
+  e.vx = 0
+  e.vy = 0
+  const reach = 360
+  if (
+    !e.didHit &&
+    distToSeg(g.player.x, g.player.y, e.x, e.y, e.x + Math.cos(e.aim) * reach, e.y + Math.sin(e.aim) * reach) < 8
+  ) {
+    e.didHit = true
+    hurt(g, 12 * strong, 'a red glare')
   }
   if (e.timer <= 0) {
     e.mode = 0
     e.timer = 2.4 + g.rng() * 0.8
   }
 }
+
+const SPIKE_SPIN = 2.8
+const SPIKE_CRUISE = 2.4
+const SPIKE_DECEL = 1.15
+const SPIKE_WARN = 0.48
+const SPIKE_LIFE = 3.8
+const SPIKE_SPEED = 460
 
 function stepBoss(g: Game, e: Enemy, dt: number, strong: number): void {
   e.eyes = Math.max(0, e.eyes - dt)
@@ -617,45 +643,91 @@ function stepBoss(g: Game, e: Enemy, dt: number, strong: number): void {
       baby.vy = Math.sin(ang) * 80
       g.enemies.push(baby)
     }
+    e.touch = (14 + e.bossRank * 2) * strong
+    return
+  }
+
+  if (e.mode === 2) {
+    e.vx = 0
+    e.vy = 0
   } else {
-    chase(g, e, dt, e.speed)
-    if (e.nextEye <= 0) {
-      e.eyes = 5
-      e.nextEye = 11 + g.rng() * 4
-      e.spawnLeft = 10
-      e.spawnAcc = 0.05
-      floater(g, e.x, e.y - e.r, 'Eyes shut', '#f0b45a')
+    const pace = e.mode === 1 ? 0.45 : 1
+    chase(g, e, dt, e.speed * pace)
+  }
+
+  for (const slot of e.spikes) {
+    if (slot.cool > 0) slot.cool = Math.max(0, slot.cool - dt)
+  }
+
+  if (e.mode === 0) {
+    e.aim += SPIKE_SPIN * dt
+    e.timer -= dt
+    if (e.timer <= 0) {
+      e.mode = 1
+      e.timer = SPIKE_DECEL
     }
+  } else if (e.mode === 1) {
+    e.aim += SPIKE_SPIN * Math.max(0, e.timer / SPIKE_DECEL) * dt
+    e.timer -= dt
+    if (e.timer <= 0) looseSpikes(g, e)
+  } else {
+    let pending = false
     for (const slot of e.spikes) {
-      if (slot.warn > 0) {
-        slot.warn -= dt
-        if (slot.warn <= 0) {
-          const speed = 250 + e.bossRank * 18
-          g.bullets.push({
-            x: e.x + Math.cos(slot.ang) * e.r,
-            y: e.y + Math.sin(slot.ang) * e.r,
-            vx: Math.cos(slot.ang) * speed,
-            vy: Math.sin(slot.ang) * speed,
-            life: 1.35,
-            damage: (9 + e.bossRank) * strong,
-            pierce: 1,
-            r: 4.5,
-            hit: [],
-            friendly: false,
-            brand: false,
-          })
-          slot.cool = Math.max(1.15, 2.15 - e.bossRank * 0.12)
-        }
-      } else if (slot.cool > 0) {
-        slot.cool -= dt
-      } else {
-        slot.ang = g.rng() * TAU
-        slot.warn = 0.62
-        g.warnings.push({ x: e.x, y: e.y, ang: slot.ang, len: 300, life: 0.62, max: 0.62, thin: false })
-      }
+      if (slot.warn <= 0) continue
+      pending = true
+      slot.warn -= dt
+      if (slot.warn > 0) continue
+      const speed = SPIKE_SPEED + e.bossRank * 14
+      g.bullets.push({
+        x: e.x + Math.cos(slot.ang) * e.r,
+        y: e.y + Math.sin(slot.ang) * e.r,
+        vx: Math.cos(slot.ang) * speed,
+        vy: Math.sin(slot.ang) * speed,
+        life: SPIKE_LIFE,
+        damage: (9 + e.bossRank) * strong,
+        pierce: 1,
+        r: 5.2,
+        hit: [],
+        friendly: false,
+        brand: false,
+      })
+      slot.cool = Math.max(1.2, 1.85 - e.bossRank * 0.08)
+      slot.warn = 0
+    }
+    if (!pending) {
+      e.mode = 0
+      e.timer = Math.max(1.35, SPIKE_CRUISE - e.bossRank * 0.12)
     }
   }
+  if (e.mode !== 2 && e.eyes <= 0 && e.nextEye <= 0) {
+    e.eyes = 5
+    e.nextEye = 11 + g.rng() * 4
+    e.spawnLeft = 10
+    e.spawnAcc = 0.05
+    floater(g, e.x, e.y - e.r, 'Eyes shut', '#f0b45a')
+  }
   e.touch = (14 + e.bossRank * 2) * strong
+}
+
+function looseSpikes(g: Game, e: Enemy): void {
+  e.mode = 2
+  e.timer = SPIKE_WARN
+  e.vx = 0
+  e.vy = 0
+  for (const slot of e.spikes) {
+    if (slot.cool > 0) continue
+    slot.ang = g.rng() * TAU
+    slot.warn = SPIKE_WARN
+    g.warnings.push({
+      x: e.x,
+      y: e.y,
+      ang: slot.ang,
+      len: (SPIKE_SPEED + e.bossRank * 14) * SPIKE_LIFE,
+      life: SPIKE_WARN,
+      max: SPIKE_WARN,
+      thin: false,
+    })
+  }
 }
 
 function chase(g: Game, e: Enemy, dt: number, speed: number): void {
@@ -669,7 +741,7 @@ function chase(g: Game, e: Enemy, dt: number, speed: number): void {
 
 function telegraphing(e: Enemy): boolean {
   if (e.kind === 'cinder' && e.mode !== 0) return true
-  if (e.kind === 'boss' && (e.eyes > 0 || e.spikes.some((s) => s.warn > 0))) return true
+  if (e.kind === 'boss' && (e.eyes > 0 || e.mode !== 0 || e.spikes.some((s) => s.warn > 0))) return true
   return false
 }
 
@@ -696,7 +768,10 @@ function spawnBoss(g: Game): void {
   e.r = 42 + Math.min(10, rank * 2)
   e.hp = e.maxHp = 260 + rank * 90 + (g.event === 'strong' ? 40 : 0)
   e.speed = 46 + rank * 4
-  e.spikes = Array.from({ length: 8 }, () => ({ cool: 0.7 + g.rng() * 1.3, warn: 0, ang: g.rng() * TAU }) satisfies SpikeSlot)
+  e.aim = g.rng() * TAU
+  e.mode = 0
+  e.timer = 2.1
+  e.spikes = Array.from({ length: 8 }, () => ({ cool: 0, warn: 0, ang: 0 }) satisfies SpikeSlot)
   e.nextEye = 8
   g.enemies.push(e)
 }

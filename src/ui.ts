@@ -204,7 +204,7 @@ function syncHud(g: Game, save: Save): void {
   const fill = byId('heat-fill')
   fill.style.width = `${Math.round(heat * 100)}%`
   fill.style.background = heatColor(heat)
-  const left = g.enemies.filter((e) => !e.dead).length
+  const left = g.enemies.filter((e) => !e.dead).length + g.incoming.length
   setText('hint', g.hint)
   setText('clock', formatTime(g.time))
   setText('seed-mini', g.seedLabel)
