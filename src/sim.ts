@@ -179,7 +179,7 @@ export function startRun(g: Game, opts: RunOptions): void {
   g.heat = g.mods.maxHeat
   g.state = 'playing'
   g.round = 1
-  g.hint = opts.tutor ? 'Clear the wisps. Sparks on the ground feed the wick.' : ''
+  g.hint = opts.tutor ? 'Heat is your life. It drains by itself. Sparks on the ground refill it.' : ''
   beginRound(g)
 }
 
@@ -229,7 +229,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
     stepCosmetics(g, dt)
     if (g.dying >= 0.85) {
       g.state = 'dead'
-      g.eulogy = eulogyFor(g.round, g.bossKills)
+      g.eulogy = eulogyFor(g.lastBlow)
     }
     return
   }
@@ -278,15 +278,37 @@ function beginRound(g: Game): void {
   g.enemies = g.enemies.filter((e) => !e.dead)
   if (g.round > 5 && g.rng() < 0.5) {
     g.event = rollEvent(g.rng)
+    g.events.push({ type: 'level' })
+  }
+  if (g.round % 5 === 0) {
+    const twist = g.event ? ` Also: ${EVENT_COPY[g.event].sub}` : ''
+    g.banner = {
+      title: 'The Briar',
+      sub: `Spikes on its body spin, slow down, then fire a long way. Kill it to end the round.${twist}`,
+      life: 3.6,
+    }
+  } else if (g.event) {
     const copy = EVENT_COPY[g.event]
     g.banner = { title: copy.title, sub: copy.sub, life: 3.2 }
-    g.events.push({ type: 'level' })
-  } else if (g.round % 5 === 0) {
-    g.banner = { title: 'The Briar', sub: 'Spikes ride its body, then tear loose.', life: 3.2 }
   } else if (g.round === 1) {
-    g.banner = { title: 'Round 1', sub: 'Wisps with red eyes. Do not let the wick go out.', life: 2.8 }
+    g.banner = {
+      title: 'Round 1',
+      sub: 'Shots fire at the nearest enemy. Clear every one. Touching them spends heat.',
+      life: 3.4,
+    }
+  } else if (g.round === 4) {
+    g.banner = {
+      title: 'Red enemies',
+      sub: 'A red one stops and draws a line, then fires. Only the bright beam hurts.',
+      life: 3.6,
+    }
+    g.events.push({ type: 'level' })
   } else {
-    g.banner = { title: `Round ${g.round}`, sub: 'Shadows arrive slowly. Clear every one.', life: 2.2 }
+    g.banner = {
+      title: `Round ${g.round}`,
+      sub: 'Enemies arrive one by one. The round ends when none are left.',
+      life: 2.6,
+    }
     g.events.push({ type: 'level' })
   }
   if (g.round > 1) g.hint = ''
@@ -1009,7 +1031,7 @@ function trySnuff(g: Game, cause: string): void {
     g.heat = Math.max(18, g.mods.maxHeat * 0.22)
     g.iframes = Math.max(g.iframes, 0.9)
     g.shake = 8
-    floater(g, g.player.x, g.player.y - 28, 'The coal cracks', '#f0b45a')
+    floater(g, g.player.x, g.player.y - 28, 'Last coal saves you', '#f0b45a')
     puff(g, g.player.x, g.player.y, 'rgba(255,180,80,0.95)', 12, 90, 0.4, 2.4)
     if (g.mods.coalRing) {
       for (let i = 0; i < 10; i++) fireSpark(g, (i / 10) * TAU, g.mods.shotDamage * 0.8, false, true, 0.75)

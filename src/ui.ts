@@ -1,9 +1,11 @@
 import {
   BLESSINGS,
   CURSES,
+  EVENT_COPY,
   UPGRADES,
   blessingById,
   buildPhrase,
+  effectOf,
   iconFor,
   roman,
   upgradeName,
@@ -157,7 +159,7 @@ function syncMenu(save: Save): void {
     fillRecords(records, [
       ['Deepest', `Round ${save.bestRound}`],
       ['Longest', formatTime(save.bestTime)],
-      ['Briars', String(save.bosses)],
+      ['Bosses', String(save.bosses)],
       ['Runs', String(save.runs)],
     ])
   }
@@ -209,7 +211,7 @@ function syncHud(g: Game, save: Save): void {
   setText('clock', formatTime(g.time))
   setText('seed-mini', g.seedLabel)
   setText('round-label', `Round ${g.round}`)
-  setText('foes', left === 1 ? '1 shadow' : `${left} shadows`)
+  setText('foes', left === 1 ? '1 enemy left' : `${left} enemies left`)
   const boss = g.enemies.find((e) => e.kind === 'boss' && !e.dead)
   const bar = byId('boss')
   bar.hidden = !boss
@@ -219,7 +221,7 @@ function syncHud(g: Game, save: Save): void {
   }
   const event = byId('event-line')
   event.hidden = !g.event
-  if (g.event) setText('event-line', g.banner?.title || 'The round turned')
+  if (g.event) setText('event-line', EVENT_COPY[g.event].title)
   paintGlyphs(g)
   void save
 }
@@ -259,7 +261,7 @@ function glyphSig(g: Game): string {
 
 function syncLevel(g: Game): void {
   const curse = g.offers[0]?.kind === 'curse'
-  setText('level-kicker', curse ? 'The dark asks a price' : 'The wick changes')
+  setText('level-kicker', curse ? 'A penalty you must take' : 'One upgrade')
   setText('level-title', curse ? 'Take a curse' : 'Choose one')
   if (g.offerSerial === offerSig) return
   offerSig = g.offerSerial
@@ -275,7 +277,11 @@ function syncLevel(g: Game): void {
     const rarity = document.createElement('span')
     rarity.className = 'rarity'
     rarity.textContent =
-      offer.kind === 'curse' ? `Curse ${roman(offer.rank)}` : offer.max <= 1 ? 'Relic' : `Rank ${roman(offer.rank)}`
+      offer.kind === 'curse'
+        ? `Curse ${roman(offer.rank)} of ${roman(offer.max)}`
+        : offer.max <= 1
+          ? 'Only once'
+          : `Rank ${roman(offer.rank)} of ${roman(offer.max)}`
     const name = document.createElement('strong')
     name.textContent = offer.name
     const text = document.createElement('p')
@@ -303,7 +309,7 @@ function syncLoadout(g: Game): void {
   downs.replaceChildren()
   const owned = UPGRADES.filter((id) => g.ranks[id] > 0)
   const cursed = CURSES.filter((id) => g.curses[id] > 0)
-  if (owned.length === 0) ups.append(emptyLine('No wicks yet.'))
+  if (owned.length === 0) ups.append(emptyLine('No upgrades yet.'))
   for (const id of owned) ups.append(row(id, g.ranks[id]))
   if (cursed.length === 0) downs.append(emptyLine('No curses yet.'))
   for (const id of cursed) downs.append(row(id, g.curses[id], true))
@@ -317,7 +323,11 @@ function row(id: UpgradeId | CurseId, rank: number, curse = false): HTMLElement 
   img.alt = ''
   img.src = iconFor(id)
   const name = document.createElement('span')
-  name.textContent = `${upgradeName(id)} ${roman(rank)}`
+  const title = document.createElement('strong')
+  title.textContent = `${upgradeName(id)} ${roman(rank)}`
+  const detail = document.createElement('small')
+  detail.textContent = effectOf(id, rank)
+  name.append(title, detail)
   li.append(img, name)
   return li
 }
@@ -340,7 +350,7 @@ function syncDead(g: Game, session: Session): void {
   fillRecords(byId('dead-stats'), [
     ['Round', String(g.round)],
     ['Time', formatTime(g.time)],
-    ['Briars', String(g.bossKills)],
+    ['Bosses', String(g.bossKills)],
     ['Slain', String(g.kills)],
   ])
   setText('dead-build', buildPhrase(g.ranks, g.curses))

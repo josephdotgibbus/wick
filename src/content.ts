@@ -134,35 +134,89 @@ interface Blurb {
   text: (rank: number) => string
 }
 
+function slower(perRank: number, rank: number): string {
+  return `${Math.round((1 - Math.pow(perRank, rank)) * 100)}%`
+}
+
+function faster(perRank: number, rank: number): string {
+  return `${Math.round((Math.pow(perRank, rank) - 1) * 100)}%`
+}
+
 const UPGRADE_COPY: Record<UpgradeId, Blurb> = {
-  kindling: { name: 'Kindling', text: (n) => `Sparks hit harder, and the mote swells with the hurt it can do. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
-  split: { name: 'Cleft spark', text: (n) => `Each spark sheds ${n > 1 ? 'two smaller sisters' : 'a smaller sister'}.` },
-  moth: { name: 'Moth', text: () => 'Sparks bend toward the nearest shadow.' },
-  orbit: { name: 'Tooth ring', text: () => 'Three teeth circle the wick and chew whatever they touch.' },
-  pop: { name: 'Cracked coal', text: () => 'A spark that dies bursts into cinders.' },
-  leech: { name: 'Wickdrink', text: () => 'A kill feeds a sip of heat back into the wick.' },
-  brand: { name: 'Hot brand', text: () => 'A hit leaves a patch of fire burning on the body.' },
-  pierce: { name: 'Needle', text: (n) => `Sparks pass through ${n > 1 ? 'more bodies' : 'another body'}.` },
-  back: { name: 'Backdraft', text: () => 'A weaker spark leaves backward.' },
-  nova: { name: 'Ring breath', text: () => 'Every fourth spark is a ring of eight.' },
-  glass: { name: 'Glass wick', text: () => 'Sparks hit much harder. Hunger comes on faster.' },
-  hearth: { name: 'Hearth', text: (n) => `The well of heat is deeper. A little returns now. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
-  step: { name: 'Cinderstep', text: (n) => `The flame moves quicker. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
-  slowburn: { name: 'Slow burn', text: (n) => `Heat leaves more slowly. ${n > 1 ? `Rank ${n}.` : ''}`.trim() },
-  halo: { name: 'Ash halo', text: () => 'Shadows inside the light slow down and scorch.' },
-  coal: { name: 'Last coal', text: () => 'The first time a round would snuff you, a coal cracks and the wick stays.' },
-  lure: { name: 'Lodestone', text: () => 'Map sparks rush in. Picking one up scorches the dark nearby.' },
+  kindling: {
+    name: 'Kindling',
+    text: (n) => `Shots deal ${Math.round(8 + n * 4.2)} damage instead of 8, and they grow a little larger.`,
+  },
+  split: {
+    name: 'Cleft spark',
+    text: (n) => `Each shot also fires ${n} extra ${n === 1 ? 'shot' : 'shots'} to the side, at 55% damage.`,
+  },
+  moth: { name: 'Moth', text: () => 'Shots curve toward the nearest enemy.' },
+  orbit: {
+    name: 'Tooth ring',
+    text: () => 'Three teeth circle you. An enemy touching one takes 28 damage a second.',
+  },
+  pop: {
+    name: 'Cracked coal',
+    text: () => 'When a shot fades out, it bursts into 6 short sparks at 42% damage.',
+  },
+  leech: {
+    name: 'Wickdrink',
+    text: () => 'A kill restores about 5 heat. Killing the Briar restores 18.',
+  },
+  brand: {
+    name: 'Hot brand',
+    text: () => 'A hit leaves fire on that spot for under a second. The fire deals half the shot’s damage each second.',
+  },
+  pierce: {
+    name: 'Needle',
+    text: (n) => `A shot hits ${n + 1} enemies before it disappears.`,
+  },
+  back: { name: 'Backdraft', text: () => 'Every shot also fires one behind you, at 62% damage.' },
+  nova: { name: 'Ring breath', text: () => 'Every 4th shot also fires 8 shots in a ring, at half damage.' },
+  glass: {
+    name: 'Glass wick',
+    text: () => `Shots deal ${Math.round((1.82 - 1) * 100)}% more damage. Heat drains ${Math.round((1.55 - 1) * 100)}% faster.`,
+  },
+  hearth: {
+    name: 'Hearth',
+    text: (n) => `Max heat becomes ${100 + n * 22}. You also gain 18 heat right now.`,
+  },
+  step: {
+    name: 'Cinderstep',
+    text: (n) => `You move ${Math.round(((198 + n * 34) / 198 - 1) * 100)}% faster.`,
+  },
+  slowburn: { name: 'Slow burn', text: (n) => `Heat drains ${slower(0.82, n)} slower.` },
+  halo: {
+    name: 'Ash halo',
+    text: () => 'Enemies inside your light move 28% slower and take 7 damage a second.',
+  },
+  coal: {
+    name: 'Last coal',
+    text: () => 'Once each round, instead of dying, you come back with 22% of your max heat (at least 18).',
+  },
+  lure: {
+    name: 'Lodestone',
+    text: () =>
+      'Sparks on the map restore 10 heat instead of 7, and they pull to you from about twice as far. Picking up any spark damages nearby enemies.',
+  },
 }
 
 const CURSE_COPY: Record<CurseId, Blurb> = {
-  heavy: { name: 'Heavy ash', text: (n) => `The flame drags. Rank ${n}.` },
-  thin: { name: 'Thin wick', text: (n) => `The well of heat is shallower. Rank ${n}.` },
-  hungry: { name: 'Hungry dark', text: (n) => `Heat leaves faster. Rank ${n}.` },
-  brittle: { name: 'Brittle flame', text: (n) => `Touches take more. Rank ${n}.` },
-  dim: { name: 'Dim wick', text: (n) => `The light pulls in. Rank ${n}.` },
-  sluggish: { name: 'Sluggish spark', text: (n) => `Sparks are slower and weaker. Rank ${n}.` },
-  swarm: { name: 'Longer dark', text: (n) => `Later rounds bring more wisps. Rank ${n}.` },
-  short: { name: 'Short breath', text: (n) => `Burst is slower and hungrier. Rank ${n}.` },
+  heavy: { name: 'Heavy ash', text: (n) => `You move ${slower(0.84, n)} slower.` },
+  thin: { name: 'Thin wick', text: (n) => `Max heat is ${slower(0.84, n)} lower.` },
+  hungry: { name: 'Hungry dark', text: (n) => `Heat drains ${faster(1.26, n)} faster.` },
+  brittle: { name: 'Brittle flame', text: (n) => `Touches and hazards take ${faster(1.28, n)} more heat.` },
+  dim: { name: 'Dim wick', text: (n) => `The light around you is ${slower(0.8, n)} smaller.` },
+  sluggish: {
+    name: 'Sluggish spark',
+    text: (n) => `Shots deal ${slower(0.8, n)} less damage and fly ${slower(0.86, n)} slower.`,
+  },
+  swarm: { name: 'Longer dark', text: (n) => `Every round spawns ${n * 2} extra enemies.` },
+  short: {
+    name: 'Short breath',
+    text: (n) => `Burst takes ${faster(1.32, n)} longer to recharge and costs ${4 + n * 2} heat instead of 4.`,
+  },
 }
 
 const PARTNERS: Partial<Record<UpgradeId, UpgradeId[]>> = {
@@ -337,10 +391,15 @@ export function upgradeName(id: OfferId): string {
   return CURSE_COPY[id as CurseId].name
 }
 
+export function effectOf(id: OfferId, rank: number): string {
+  if (id in UPGRADE_COPY) return UPGRADE_COPY[id as UpgradeId].text(rank)
+  return CURSE_COPY[id as CurseId].text(rank)
+}
+
 export function buildPhrase(ranks: Ranks, curses: Curses): string {
   const ups = UPGRADES.filter((id) => ranks[id] > 0).map((id) => `${UPGRADE_COPY[id].name} ${roman(ranks[id])}`)
   const downs = CURSES.filter((id) => curses[id] > 0).map((id) => `${CURSE_COPY[id].name} ${roman(curses[id])}`)
-  if (ups.length === 0 && downs.length === 0) return 'Bare flame'
+  if (ups.length === 0 && downs.length === 0) return 'No upgrades'
   return [...ups, ...downs].join(' · ')
 }
 
@@ -423,14 +482,14 @@ function weighted<T>(rng: () => number, items: T[], weights: number[]): T {
 }
 
 export const EVENT_COPY: Record<EventId, { title: string; sub: string }> = {
-  strong: { title: 'Fed shadows', sub: 'The dark hits harder and holds more heat.' },
-  slip: { title: 'Slick ash', sub: 'The floor keeps the flame sliding.' },
-  rubble: { title: 'Fallen stone', sub: 'More rock rises around the wick.' },
-  haste: { title: 'Quick dark', sub: 'Wisps close faster.' },
-  starve: { title: 'Starving air', sub: 'Heat leaves in a hurry this round.' },
-  fog: { title: 'Close fog', sub: 'The light pulls tight.' },
-  vents: { title: 'New vents', sub: 'More pits and bramble open.' },
-  surge: { title: 'Second swarm', sub: 'Extra wisps pour in.' },
+  strong: { title: 'Tougher enemies', sub: 'They have more health, and touching one costs more heat.' },
+  slip: { title: 'Slick ground', sub: 'You slide. Letting go does not stop you at once.' },
+  rubble: { title: 'Extra stones', sub: 'More rocks rise and block the way.' },
+  haste: { title: 'Faster enemies', sub: 'Wisps and red enemies close in quicker.' },
+  starve: { title: 'Heat drains faster', sub: 'Heat leaves about 50% faster this round.' },
+  fog: { title: 'Smaller light', sub: 'The light around you shrinks.' },
+  vents: { title: 'Extra hazards', sub: 'More pits and bramble. Pits drain heat. Bramble hurts when you touch it.' },
+  surge: { title: 'Extra enemies', sub: 'Four more enemies join this round.' },
 }
 
 export function rollEvent(rng: () => number): EventId {
@@ -460,37 +519,37 @@ export interface Blessing {
 export const BLESSINGS: Blessing[] = [
   {
     id: 'bare',
-    name: 'Bare flame',
-    desc: 'Nothing extra. The honest start.',
+    name: 'None',
+    desc: 'Start with no upgrade.',
     need: '',
     met: () => true,
   },
   {
     id: 'hearth',
-    name: 'Banked hearth',
-    desc: 'Begin with Hearth. A deeper well.',
-    need: 'Reach round 4',
+    name: 'Hearth',
+    desc: 'Start with Hearth: max heat 122 instead of 100.',
+    need: 'Get to round 4',
     met: (m) => m.round >= 4,
   },
   {
     id: 'step',
-    name: 'Quick wick',
-    desc: 'Begin with Cinderstep.',
-    need: 'Reach round 6',
+    name: 'Cinderstep',
+    desc: 'Start with Cinderstep: you move 17% faster.',
+    need: 'Get to round 6',
     met: (m) => m.round >= 6,
   },
   {
     id: 'kindling',
-    name: 'First coal',
-    desc: 'Begin with Kindling.',
-    need: 'Reach round 8',
+    name: 'Kindling',
+    desc: 'Start with Kindling: shots deal 12 damage instead of 8.',
+    need: 'Get to round 8',
     met: (m) => m.round >= 8,
   },
   {
     id: 'slowburn',
-    name: 'Long coal',
-    desc: 'Begin with Slow burn.',
-    need: 'Reach round 10 or last 2:00',
+    name: 'Slow burn',
+    desc: 'Start with Slow burn: heat drains 18% slower.',
+    need: 'Get to round 10, or survive 2:00',
     met: (m) => m.round >= 10 || m.time >= 120,
   },
 ]
@@ -505,11 +564,18 @@ export function blessingById(id: string): Blessing | undefined {
   return BLESSINGS.find((b) => b.id === id)
 }
 
-export function eulogyFor(round: number, bosses: number): string {
-  if (bosses > 1) return `The briar fell ${bosses} times. The wick still went out on round ${round}.`
-  if (bosses === 1) return `One briar fell. Round ${round} took the rest of the flame.`
-  if (round <= 1) return 'The wick starved before the first dark finished.'
-  return `The wick went out on round ${round}.`
+export function eulogyFor(cause: string): string {
+  if (cause === 'hunger') return 'Heat drained to zero.'
+  if (cause === 'a pit') return 'A pit drained the last of your heat.'
+  if (cause === 'bramble') return 'Bramble took the last of your heat.'
+  if (cause === 'a red glare') return 'A red beam took the last of your heat. The warning line does not hurt. The bright beam does.'
+  if (cause === 'a spike') return 'A Briar spike took the last of your heat.'
+  if (cause === 'you let go') return 'You ended the run.'
+  if (cause === 'Wisp') return 'A wisp touched you and took the last of your heat.'
+  if (cause === 'Cinder wisp') return 'A red enemy touched you and took the last of your heat.'
+  if (cause === 'The Briar') return 'The Briar touched you and took the last of your heat.'
+  if (!cause) return 'Heat hit zero.'
+  return `${cause} took the last of your heat.`
 }
 
 export function isUpgrade(id: OfferId): id is UpgradeId {

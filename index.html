@@ -8,7 +8,7 @@
     <meta name="color-scheme" content="dark" />
     <meta
       name="description"
-      content="WICK is a short, endlessly replayable survival game. Keep the flame fed, draft a strange build, and see how long one wick can last."
+      content="WICK is a short survival game. Heat is your life. Clear each round, then pick an upgrade that says exactly what it does."
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,7 +25,7 @@
             <div class="heat-fill" id="heat-fill"></div>
           </div>
           <div class="heatmeta">
-            <span id="heat-label">Heat</span>
+            <span id="heat-label">Heat · life</span>
             <span id="hint"></span>
           </div>
         </div>
@@ -46,7 +46,7 @@
       </div>
       <div class="bottom">
         <div class="levelblock">
-          <button id="loadout-btn" type="button">Build</button>
+          <button id="loadout-btn" type="button">Upgrades</button>
           <button id="pause-btn" type="button" hidden>Pause</button>
         </div>
         <button id="burst" type="button">Burst</button>
@@ -65,15 +65,17 @@
         <p class="kicker">Survival arcade</p>
         <h1>Wick</h1>
         <p class="lede">
-          Clear the round. Draft a wick. Every fifth dark, take a curse and face the briar.
+          Heat is your life. It drains by itself, and touching an enemy spends more. Sparks on the ground fill it back up.
+          Shots fire at the nearest enemy. Clear every enemy to end the round, then pick one upgrade. Every 5th round you
+          fight the Briar and must take a curse.
         </p>
         <div class="row">
-          <button id="play" class="primary" type="button">Light the wick</button>
-          <button id="daily" class="ghost" type="button">Daily burn</button>
+          <button id="play" class="primary" type="button">Start run</button>
+          <button id="daily" class="ghost" type="button">Daily seed</button>
         </div>
         <p class="note" id="daily-note"></p>
         <form id="seed-form">
-          <label for="seed-input">Run a seed</label>
+          <label for="seed-input">Play a seed</label>
           <div class="row">
             <input
               id="seed-input"
@@ -81,27 +83,27 @@
               autocomplete="off"
               spellcheck="false"
               maxlength="40"
-              placeholder="WICK-0000-0000 or any phrase"
+              placeholder="Seed or any phrase"
               aria-describedby="seed-help"
             />
             <button class="ghost" type="submit">Run</button>
           </div>
-          <p id="seed-help" class="note">Same spawns. Your hands still decide the wick.</p>
+          <p id="seed-help" class="note">The same seed repeats the map and the enemy spawns. How you move, and which upgrades you pick, can still differ.</p>
         </form>
         <fieldset>
           <legend>Blessing</legend>
           <div id="blessings" class="blessings"></div>
         </fieldset>
-        <div id="empty-records" class="note">No burns yet. The first one teaches the wick.</div>
+        <div id="empty-records" class="note">No runs yet.</div>
         <dl class="records" id="records" hidden></dl>
         <ol id="history" class="history" hidden></ol>
-        <p class="keys">You choose mouse or keys before each burn · Space or Burst · Esc pauses · M mutes</p>
+        <p class="keys">Mouse or keys before the run. Burst spends heat and dashes. Esc pauses. M mutes.</p>
       </section>
 
       <section id="panel-steer" class="panel" hidden>
         <p class="kicker">Before the dark</p>
         <h2>How does the flame move?</h2>
-        <p class="lede">Pick one. The other will not steer this run. Burst stays on Space, click, and the Burst button.</p>
+        <p class="lede">Pick one. The other will not move you this run. Shots still fire on their own. Burst stays on Space, click, and the Burst button: a short dash that spends heat and damages enemies it passes through.</p>
         <div class="choices">
           <button id="steer-mouse" class="choice primary" type="button">
             <strong>Mouse</strong>
@@ -118,26 +120,26 @@
         <p class="kicker" id="level-kicker">The wick changes</p>
         <h2 id="level-title">Choose one</h2>
         <div id="cards" class="cards"></div>
-        <p class="keys" id="level-keys">Keys 1, 2, 3</p>
+        <p class="keys" id="level-keys">Press 1, 2, or 3, or click a card.</p>
         <p class="syn-live" id="level-syn"></p>
       </section>
 
       <section id="panel-pause" class="panel" hidden>
-        <p class="kicker">Still burning</p>
+        <p class="kicker">The run continues</p>
         <h2>Paused</h2>
         <p id="pause-build" class="build"></p>
         <div class="row">
           <button id="resume" class="primary" type="button">Resume</button>
           <button id="give-up" class="ghost" type="button">End run</button>
         </div>
-        <p class="keys">Esc resumes · M mutes · Build lists every wick and curse</p>
+        <p class="keys">Esc resumes. M mutes. Upgrades lists what each pick does.</p>
       </section>
 
       <section id="panel-loadout" class="panel" hidden>
-        <p class="kicker">Carried flame</p>
-        <h2>Build</h2>
+        <p class="kicker">This run</p>
+        <h2>Upgrades</h2>
         <p id="loadout-syn" class="note"></p>
-        <h3>Wicks</h3>
+        <h3>Upgrades</h3>
         <ul id="loadout-ups" class="loadlist"></ul>
         <h3>Curses</h3>
         <ul id="loadout-curses" class="loadlist"></ul>
@@ -145,7 +147,7 @@
       </section>
 
       <section id="panel-dead" class="panel" hidden aria-live="polite">
-        <p class="kicker">Snuffed</p>
+        <p class="kicker">Run over</p>
         <p class="big-score" id="dead-round">Round 1</p>
         <p class="record" id="dead-record"></p>
         <h2 id="dead-eulogy"></h2>
@@ -158,7 +160,7 @@
         </div>
         <div class="row">
           <button id="again" class="primary" type="button">Same seed</button>
-          <button id="fresh" class="ghost" type="button">New wick</button>
+          <button id="fresh" class="ghost" type="button">New run</button>
           <button id="to-menu" class="ghost" type="button">Menu</button>
         </div>
       </section>

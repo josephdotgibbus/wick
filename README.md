@@ -1,23 +1,24 @@
 # WICK
 
-A boss-rush survival game. You are a wick in an endless dark. Heat is your life. Each round ends when every shadow that arrived is gone. Then you draft a wick. Every fifth round you take a curse instead, and the Briar wakes.
+A boss-rush survival game. You are a flame in the dark. The heat bar is your life: it drains on its own, and touching an enemy spends more. Sparks on the ground fill it back up. There is no score.
+
+Each round ends when every enemy that was going to arrive is dead. Shots fire at the nearest enemy by themselves. Then you pick one of three upgrades. The card says what that upgrade does. Every fifth round you fight the Briar and must take a curse. Upgrades lists everything you are carrying, with the effect written out.
 
 ## Play
 
-- **Steer:** before the run, choose mouse or keys. Only that one moves the flame.
+- **Steer:** before the run, choose mouse or keys. Only that one moves you.
 - **Mouse:** the cursor pulls the flame. A touch drag does the same.
 - **Keys:** WASD, arrows, or a gamepad stick.
-- **Burst:** Space, click, or the Burst button. It spends a little heat and cuts what it passes through.
-- **Draft:** clear a round. Dropped sparks fly home, then you pick one of three wicks. Some of them change when kept together.
-- **Curses:** every fifth clear, you must take a curse. Build lists both.
-- **Sparks:** small flames on the ground restore heat. There is no score and no streak.
+- **Burst:** Space, click, or the Burst button. It spends a little heat, dashes, and damages enemies it passes through.
+- **Draft:** after a clear, dropped sparks fly to you, then you pick one upgrade.
+- **Curses:** every fifth clear, you must take a penalty. The card states the downside.
 - **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss.
 
-Wisps are small, red-eyed, and leave a cloudy trail. They arrive one by one, later rounds send more of them, and each one takes a lot of killing. Sparks thin out before they vanish. After round 3, a red one sometimes stops and paints a warning line, then fires a thin laser. Only the laser burns. Stones block you. Pits and bramble get worse as the rounds climb. From round 6 on, half of the rounds twist: slick ash, extra rock, a thicker dark.
+Wisps are small and red-eyed. They arrive one by one, later rounds send more, and each one takes a lot of killing. Shots thin out before they vanish. From round 4, a red enemy sometimes stops, draws a warning line, then fires a thin beam. Only the beam hurts. Stones block you. Pits drain heat. Bramble hurts when you touch it. From round 6 on, half of the rounds add a twist, and the banner says which one.
 
 The Briar's spikes sit in its body and spin with it. They slow, aim at random, and then fly a long way.
 
-The same seed deals the same land. Blessings unlock from the deepest round and change the next start. Everything is saved in this browser.
+The same seed repeats the map and the spawns. Blessings unlock from how far you have gotten and change the next start. Everything is saved in this browser.
 
 ## Run locally
 

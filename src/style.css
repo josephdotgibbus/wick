@@ -401,7 +401,7 @@ h2 {
 }
 
 .lede {
-  max-width: 38ch;
+  max-width: 46ch;
   font-size: 18px;
   line-height: 1.45;
   color: var(--cream);
@@ -708,11 +708,14 @@ fieldset {
 .card.curse .rarity { color: #e15a5a; }
 
 #panel-loadout h3 { margin: 16px 0 8px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
-.loadlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.loadlist li { display: flex; align-items: center; gap: 10px; }
-.loadlist img { width: 42px; height: 42px; border-radius: 10px; }
+.loadlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.loadlist li { display: flex; align-items: flex-start; gap: 10px; }
+.loadlist img { width: 42px; height: 42px; border-radius: 10px; flex: none; }
+.loadlist li > span { display: grid; gap: 2px; min-width: 0; }
+.loadlist strong { font-weight: 560; }
+.loadlist small { color: var(--dim); font-size: 13px; line-height: 1.35; }
 .loadlist .empty { color: var(--dim); }
-.loadlist .curse span { color: #e7b0a8; }
+.loadlist .curse strong { color: #e7b0a8; }
 #loadout-btn, #loadout-close { margin-top: 8px; }
 #event-line { color: var(--gold); }
 
@@ -720,6 +723,8 @@ fieldset {
 
 @media (max-width: 800px) {
   .choices { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: 1fr; }
+  #panel-level { margin-top: 84px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
