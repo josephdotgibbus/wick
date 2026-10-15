@@ -1,84 +1,76 @@
-export type Kind = 'mote' | 'ashling' | 'warden' | 'leech' | 'popper' | 'shade' | 'boss'
+export type Kind = 'wisp' | 'cinder' | 'boss'
 
 export type UpgradeId =
-  | 'reach'
-  | 'hunger'
-  | 'wisp'
-  | 'temper'
-  | 'fan'
-  | 'trail'
+  | 'kindling'
+  | 'split'
+  | 'lance'
+  | 'hearth'
+  | 'slowburn'
+  | 'lure'
+  | 'step'
+  | 'ward'
   | 'bellows'
-  | 'wick'
-  | 'heart'
-  | 'arc'
+  | 'thorn'
+  | 'tell'
+  | 'trail'
+  | 'twin'
   | 'glass'
-  | 'emberheart'
-  | 'nova'
-  | 'drift'
-  | 'hush'
-  | 'feast'
+  | 'coal'
+  | 'pierce'
 
-export type OfferId = UpgradeId | 'gulp' | 'cache'
+export type CurseId = 'heavy' | 'thin' | 'hungry' | 'brittle' | 'dim' | 'sluggish' | 'swarm' | 'short'
+
+export type EventId = 'strong' | 'slip' | 'rubble' | 'haste' | 'starve' | 'fog' | 'vents' | 'surge'
+
+export type OfferId = UpgradeId | CurseId
+
+export type ControlMode = 'mouse' | 'keys'
 
 export type Mode = 'endless' | 'daily' | 'seed'
 
-export type State = 'menu' | 'playing' | 'levelup' | 'paused' | 'dying' | 'dead'
+export type State = 'menu' | 'steer' | 'playing' | 'levelup' | 'paused' | 'dying' | 'dead'
 
-export interface Ranks {
-  reach: number
-  hunger: number
-  wisp: number
-  temper: number
-  fan: number
-  trail: number
-  bellows: number
-  wick: number
-  heart: number
-  arc: number
-  glass: number
-  emberheart: number
-  nova: number
-  drift: number
-  hush: number
-  feast: number
-}
+export type Ranks = Record<UpgradeId, number>
+export type Curses = Record<CurseId, number>
 
 export interface Mods {
-  light: number
-  auraDps: number
-  magnet: number
-  wisps: number
-  sparkDamage: number
-  sparkInterval: number
+  shotDamage: number
+  shotSpeed: number
+  shotLife: number
   pierce: number
-  trailRanks: number
-  trailDps: number
-  burstCd: number
-  decayMult: number
+  forks: number
+  forkFrac: number
+  twin: boolean
+  twinFrac: number
+  fireInterval: number
   maxHeat: number
-  chain: number
-  chainRange: number
-  chainFrac: number
-  damageMult: number
-  comboGrace: number
-  novaEvery: number
+  decayMult: number
+  magnet: number
   speed: number
-  hush: boolean
-  hushTime: number
-  beamLen: number
-  beamDamage: number
-  feastHeat: number
-  orbit: number
+  touchMult: number
+  light: number
+  burstCd: number
+  burstCost: number
+  trail: boolean
+  trailDps: number
+  bossBonus: number
+  tellBonus: number
+  roundHeal: number
+  sparkValue: number
+  extraSpawns: number
+  brand: boolean
+  burstBoss: number
 }
 
 export interface Offer {
   id: OfferId
+  kind: 'upgrade' | 'curse'
   name: string
-  rarity: 'common' | 'rare' | 'legend' | 'boon'
   text: string
   hint: string | null
   rank: number
   max: number
+  icon: string
 }
 
 export interface Player {
@@ -86,6 +78,12 @@ export interface Player {
   y: number
   vx: number
   vy: number
+}
+
+export interface SpikeSlot {
+  cool: number
+  warn: number
+  ang: number
 }
 
 export interface Enemy {
@@ -101,18 +99,20 @@ export interface Enemy {
   r: number
   speed: number
   touch: number
-  xp: number
-  emberN: number
-  emberValue: number
-  sap: number
-  phase: number
-  side: number
   flash: number
-  elite: boolean
   dead: boolean
   resolved: boolean
-  bossIndex: number
-  nextRing: number
+  mode: number
+  timer: number
+  aim: number
+  didHit: boolean
+  eyes: number
+  nextEye: number
+  spawnLeft: number
+  spawnAcc: number
+  spikes: SpikeSlot[]
+  trail: number
+  bossRank: number
 }
 
 export interface Bullet {
@@ -125,16 +125,37 @@ export interface Bullet {
   pierce: number
   r: number
   hit: number[]
+  friendly: boolean
+  brand: boolean
 }
 
-export interface Ember {
+export interface Spark {
   x: number
   y: number
-  vx: number
-  vy: number
   value: number
   life: number
-  age: number
+  taken: boolean
+}
+
+export interface Obstacle {
+  x: number
+  y: number
+  r: number
+}
+
+export interface Hazard {
+  x: number
+  y: number
+  r: number
+  dps: number
+  kind: 'pit' | 'bramble'
+  tick: number
+}
+
+export interface Chunk {
+  obstacles: Obstacle[]
+  hazards: Hazard[]
+  sparks: Spark[]
 }
 
 export interface Patch {
@@ -144,16 +165,6 @@ export interface Patch {
   life: number
   max: number
   dps: number
-}
-
-export interface Ring {
-  x: number
-  y: number
-  r: number
-  speed: number
-  thick: number
-  hit: boolean
-  life: number
 }
 
 export interface Particle {
@@ -186,23 +197,17 @@ export interface Beam {
   width: number
   life: number
   max: number
+  color: string
 }
 
-export interface Arc {
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-  life: number
-  max: number
-}
-
-export interface Nova {
+export interface Warning {
   x: number
   y: number
-  r: number
+  ang: number
+  len: number
   life: number
   max: number
+  thin: boolean
 }
 
 export interface Decor {
@@ -221,21 +226,26 @@ export interface Banner {
 
 export type GameEvent =
   | { type: 'hurt' }
-  | { type: 'collect'; combo: number }
+  | { type: 'collect' }
   | { type: 'level' }
   | { type: 'die' }
   | { type: 'burst' }
-  | { type: 'inferno' }
   | { type: 'boss' }
   | { type: 'bossdead' }
   | { type: 'beam' }
-  | { type: 'nova' }
-  | { type: 'best' }
 
 export interface FrameInput {
   ax: number
   ay: number
   burst: boolean
+}
+
+export interface PendingRun {
+  mode: Mode
+  seed: number
+  blessing: string
+  bestRound: number
+  tutor: boolean
 }
 
 export interface Game {
@@ -247,62 +257,53 @@ export interface Game {
   runSerial: number
   time: number
   menuT: number
-  score: number
+  round: number
   bestAtStart: number
-  beatBest: boolean
-  combo: number
-  comboBest: number
-  lastCollect: number
-  blaze: number
-  inferno: number
   heat: number
-  xp: number
-  xpNext: number
-  level: number
   kills: number
   bossKills: number
   ranks: Ranks
+  curses: Curses
   mods: Mods
   blessingId: string
+  control: ControlMode
+  pending: PendingRun | null
+  loadoutOpen: boolean
+  event: EventId | null
+  slip: boolean
   player: Player
   facing: number
   iframes: number
   burstCd: number
   burstT: number
   burstAng: number
-  burstHits: number[]
-  stillness: number
-  beamCd: number
-  sparkCd: number[]
-  orbit: number
+  fireCd: number
+  trailCd: number
+  brambleCd: number
   enemies: Enemy[]
   bullets: Bullet[]
-  embers: Ember[]
+  sparks: Spark[]
   patches: Patch[]
-  rings: Ring[]
   particles: Particle[]
   floaters: Floater[]
   beams: Beam[]
-  arcs: Arc[]
-  novas: Nova[]
+  warnings: Warning[]
+  chunks: Map<string, Chunk>
+  extras: Obstacle[]
+  extraHazards: Hazard[]
   decor: Decor[]
-  spawnAcc: number
-  nextBoss: number
-  bossIndex: number
   nextId: number
   offers: Offer[]
   offerSerial: number
   pickLock: number
+  clearT: number
   banner: Banner | null
   hint: string
   tutor: boolean
-  shadeHint: boolean
   lastBlow: string
-  lastHurt: number
   dying: number
   snuff: number
   shake: number
-  hitstop: number
   hurtFlash: number
   events: GameEvent[]
   eulogy: string

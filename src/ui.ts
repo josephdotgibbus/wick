@@ -1,9 +1,19 @@
-import { BLESSINGS, activeSynergies, blessingById, buildPhrase, roman } from './content.ts'
-import { formatScore, formatTime } from './format.ts'
+import {
+  BLESSINGS,
+  CURSES,
+  UPGRADES,
+  activeSynergies,
+  blessingById,
+  buildPhrase,
+  iconFor,
+  roman,
+  upgradeName,
+} from './content.ts'
+import { formatTime } from './format.ts'
 import { dailyKey, dailySeed, formatSeed } from './rng.ts'
 import type { Save } from './storage.ts'
 import { todayBest } from './storage.ts'
-import type { Game } from './types.ts'
+import type { CurseId, Game, UpgradeId } from './types.ts'
 
 export interface Session {
   fresh: string[]
@@ -24,6 +34,8 @@ export interface Actions {
   toggleMute: () => void
   blessing: (id: string) => void
   burst: () => void
+  steer: (mode: 'mouse' | 'keys') => void
+  loadout: () => void
 }
 
 let bound: Actions | null = null
@@ -39,6 +51,10 @@ export function mount(actions: Actions): void {
   byId('pause-btn').addEventListener('click', actions.resume)
   byId('give-up').addEventListener('click', actions.giveUp)
   byId('mute').addEventListener('click', actions.toggleMute)
+  byId('steer-mouse').addEventListener('click', () => actions.steer('mouse'))
+  byId('steer-keys').addEventListener('click', () => actions.steer('keys'))
+  byId('loadout-btn').addEventListener('click', actions.loadout)
+  byId('loadout-close').addEventListener('click', actions.loadout)
   for (const id of ['burst', 'keycap']) {
     byId(id).addEventListener('pointerdown', (event) => {
       event.preventDefault()
@@ -63,32 +79,41 @@ let histSig = ''
 let offerSig = -1
 let deadSig = ''
 let shellState = ''
+let loadSig = ''
 
 export function sync(g: Game, save: Save, session: Session): void {
   const menu = g.state === 'menu'
   const hudOn = g.state === 'playing' || g.state === 'levelup' || g.state === 'paused' || g.state === 'dying'
   show('panel-menu', menu)
+  show('panel-steer', g.state === 'steer')
   show('panel-level', g.state === 'levelup')
   show('panel-pause', g.state === 'paused')
   show('panel-dead', g.state === 'dead')
+  show('panel-loadout', g.loadoutOpen && (g.state === 'playing' || g.state === 'paused'))
   show('hud', hudOn)
   show('banner', !!g.banner && (g.state === 'playing' || g.state === 'dying'))
 
   const shell = byId('shell')
-  shell.classList.toggle('overlay', g.state === 'levelup' || g.state === 'paused' || g.state === 'dead')
+  const overlay = g.state === 'levelup' || g.state === 'paused' || g.state === 'dead' || g.state === 'steer'
+  shell.classList.toggle('overlay', overlay)
   if (g.state !== shellState) {
     shellState = g.state
     shell.scrollTop = 0
   }
-  if (g.state === 'paused' || g.state === 'levelup') shell.scrollTop = 0
+  if (g.state === 'levelup' || g.state === 'paused') shell.scrollTop = 0
   byId('hud').classList.toggle('quiet', g.state === 'levelup' || g.state === 'paused')
   byId('pause-btn').hidden = g.state !== 'playing'
+  byId('loadout-btn').hidden = g.state !== 'playing' && g.state !== 'paused'
 
   const mute = byId('mute')
   mute.textContent = save.muted ? 'Muted' : 'Sound'
   mute.setAttribute('aria-pressed', save.muted ? 'true' : 'false')
 
   if (menu) syncMenu(save)
+  if (g.state === 'steer') {
+    byId('steer-mouse').classList.toggle('primary', save.control !== 'keys')
+    byId('steer-keys').classList.toggle('primary', save.control === 'keys')
+  }
   if (hudOn) syncHud(g, save)
   if (g.banner && (g.state === 'playing' || g.state === 'dying')) {
     const title = byId('banner-title')
@@ -101,7 +126,8 @@ export function sync(g: Game, save: Save, session: Session): void {
     setText('banner-sub', g.banner.sub)
   }
   if (g.state === 'levelup') syncLevel(g)
-  if (g.state === 'paused') setText('pause-build', buildPhrase(g.ranks))
+  if (g.state === 'paused') setText('pause-build', buildPhrase(g.ranks, g.curses))
+  if (g.loadoutOpen) syncLoadout(g)
   if (g.state === 'dead') syncDead(g, session)
 }
 
@@ -109,10 +135,7 @@ function syncMenu(save: Save): void {
   const day = dailyKey()
   const label = formatSeed(dailySeed())
   const best = todayBest(save, day)
-  setText(
-    'daily-note',
-    best > 0 ? `Today ${label} · your best ${formatScore(best)}` : `Today’s seed · ${label}`,
-  )
+  setText('daily-note', best > 0 ? `Today ${label} · round ${best}` : `Today’s seed · ${label}`)
   const sig = `${save.unlocks.join(',')}|${save.blessing}`
   if (sig !== blessSig) {
     blessSig = sig
@@ -129,23 +152,23 @@ function syncMenu(save: Save): void {
   }
   empty.hidden = true
   records.hidden = false
-  const recSig = `${save.bestScore}|${save.bestTime}|${save.bestCombo}|${save.runs}`
+  const recSig = `${save.bestRound}|${save.bestTime}|${save.bosses}|${save.runs}`
   if (recSig !== histSig.split('~')[0]) {
     fillRecords(records, [
-      ['Best', formatScore(save.bestScore)],
+      ['Deepest', `Round ${save.bestRound}`],
       ['Longest', formatTime(save.bestTime)],
-      ['Combo', String(save.bestCombo)],
+      ['Briars', String(save.bosses)],
       ['Runs', String(save.runs)],
     ])
   }
-  const hsig = `${recSig}~${save.history.map((h) => `${h.seed}:${h.score}:${h.time}`).join('|')}`
+  const hsig = `${recSig}~${save.history.map((h) => `${h.seed}:${h.round}:${h.time}`).join('|')}`
   if (hsig !== histSig) {
     histSig = hsig
     history.hidden = save.history.length === 0
     history.replaceChildren()
-    for (const entry of save.history) {
+    for (const h of save.history) {
       const li = document.createElement('li')
-      li.textContent = `${formatScore(entry.score)} · ${formatTime(entry.time)} · ${entry.seed}`
+      li.textContent = `Round ${h.round} · ${formatTime(h.time)} · ${h.seed}`
       history.append(li)
     }
   }
@@ -157,7 +180,7 @@ function paintBlessings(save: Save): void {
   for (const blessing of BLESSINGS) {
     const locked = blessing.id !== 'bare' && !save.unlocks.includes(blessing.id)
     const label = document.createElement('label')
-    label.className = `bless${locked ? ' is-locked' : ''}`
+    label.className = locked ? 'bless locked' : 'bless'
     const input = document.createElement('input')
     input.type = 'radio'
     input.name = 'blessing'
@@ -167,11 +190,9 @@ function paintBlessings(save: Save): void {
     input.addEventListener('change', () => {
       if (input.checked) bound?.blessing(blessing.id)
     })
-    const name = document.createElement('span')
-    name.className = 'bless-name'
+    const name = document.createElement('strong')
     name.textContent = blessing.name
     const desc = document.createElement('span')
-    desc.className = 'bless-desc'
     desc.textContent = locked ? blessing.need : blessing.desc
     label.append(input, name, desc)
     root.append(label)
@@ -179,47 +200,67 @@ function paintBlessings(save: Save): void {
 }
 
 function syncHud(g: Game, save: Save): void {
-  const max = Math.max(1, g.mods.maxHeat)
-  const heat = Math.max(0, g.heat) / max
+  const heat = g.mods.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.mods.maxHeat
   const fill = byId('heat-fill')
-  fill.style.width = `${Math.max(0, Math.min(1, heat)) * 100}%`
+  fill.style.width = `${Math.round(heat * 100)}%`
   fill.style.background = heatColor(heat)
-  byId('heat').classList.toggle('desperate', heat < 0.28 && g.inferno <= 0)
-  setText('heat-label', g.inferno > 0 ? 'Inferno' : 'Heat')
+  const left = g.enemies.filter((e) => !e.dead).length
   setText('hint', g.hint)
-  setText('score', formatScore(g.score))
-  const score = byId('score')
-  score.classList.toggle('is-best', g.beatBest)
-  setText('combo', g.combo >= 2 ? `×${g.combo}` : '')
-  const target = g.mode === 'daily' ? todayBest(save) : save.bestScore
-  const bestText = g.beatBest ? (g.mode === 'daily' ? 'Daily best' : 'New best') : target > 0 ? `Best ${formatScore(target)}` : ''
-  setText('bestline', bestText)
-  byId('blaze-fill').style.width = `${Math.max(0, Math.min(1, g.inferno > 0 ? 1 : g.blaze)) * 100}%`
-  byId('blaze').classList.toggle('is-hot', g.inferno > 0)
   setText('clock', formatTime(g.time))
   setText('seed-mini', g.seedLabel)
-  setText('level', `Level ${g.level}`)
-  const xp = g.xpNext <= 0 ? 0 : Math.max(0, Math.min(1, g.xp / g.xpNext))
-  byId('xp-fill').style.width = `${xp * 100}%`
-  setText('synergy-line', activeSynergies(g.ranks).join(' · '))
-  const cd = g.mods.burstCd <= 0 ? 0 : Math.max(0, Math.min(1, g.burstCd / g.mods.burstCd))
-  const burst = byId<HTMLButtonElement>('burst')
-  burst.style.setProperty('--cd', String(cd))
-  burst.disabled = g.state !== 'playing'
-  byId('keycap-fill').style.height = `${cd * 100}%`
-
-  const boss = g.enemies.find((e) => e.kind === 'boss')
-  const bossEl = byId('boss')
-  if (boss && g.state !== 'dying') {
-    bossEl.hidden = false
+  setText('round-label', `Round ${g.round}`)
+  setText('foes', left === 1 ? '1 shadow' : `${left} shadows`)
+  const boss = g.enemies.find((e) => e.kind === 'boss' && !e.dead)
+  const bar = byId('boss')
+  bar.hidden = !boss
+  if (boss) {
     setText('boss-name', boss.name)
-    byId('boss-fill').style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`
-  } else {
-    bossEl.hidden = true
+    byId('boss-fill').style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`
+  }
+  const event = byId('event-line')
+  event.hidden = !g.event
+  if (g.event) setText('event-line', g.banner?.title || 'The round turned')
+  paintGlyphs(g)
+  void save
+}
+
+function paintGlyphs(g: Game): void {
+  const sig = glyphSig(g)
+  if (sig === loadSig) return
+  loadSig = sig
+  const row = byId('glyph-row')
+  row.replaceChildren()
+  for (const id of UPGRADES) {
+    if (g.ranks[id] <= 0) continue
+    row.append(glyph(id, roman(g.ranks[id])))
+  }
+  for (const id of CURSES) {
+    if (g.curses[id] <= 0) continue
+    row.append(glyph(id, roman(g.curses[id]), true))
   }
 }
 
+function glyph(id: string, rank: string, curse = false): HTMLElement {
+  const fig = document.createElement('figure')
+  fig.className = curse ? 'glyph curse' : 'glyph'
+  const img = document.createElement('img')
+  img.alt = ''
+  img.src = iconFor(id)
+  const cap = document.createElement('figcaption')
+  cap.textContent = rank
+  fig.append(img, cap)
+  fig.title = `${upgradeName(id as UpgradeId)} ${rank}`
+  return fig
+}
+
+function glyphSig(g: Game): string {
+  return UPGRADES.map((id) => g.ranks[id]).join(',') + '|' + CURSES.map((id) => g.curses[id]).join(',')
+}
+
 function syncLevel(g: Game): void {
+  const curse = g.offers[0]?.kind === 'curse'
+  setText('level-kicker', curse ? 'The dark asks a price' : 'The wick changes')
+  setText('level-title', curse ? 'Take a curse' : 'Choose one')
   if (g.offerSerial === offerSig) return
   offerSig = g.offerSerial
   const cards = byId('cards')
@@ -227,55 +268,84 @@ function syncLevel(g: Game): void {
   g.offers.forEach((offer, index) => {
     const button = document.createElement('button')
     button.type = 'button'
-    button.className = `card rarity-${offer.rarity}`
+    button.className = offer.kind === 'curse' ? 'card curse' : 'card'
+    const img = document.createElement('img')
+    img.alt = ''
+    img.src = offer.icon
     const rarity = document.createElement('span')
     rarity.className = 'rarity'
-    rarity.textContent = offer.rarity === 'legend' ? 'White-hot' : offer.rarity
-    const title = document.createElement('h3')
-    title.textContent = offer.name
+    rarity.textContent = offer.kind === 'curse' ? `Curse ${roman(offer.rank)}` : `Rank ${roman(offer.rank)}`
+    const name = document.createElement('strong')
+    name.textContent = offer.name
     const text = document.createElement('p')
     text.textContent = offer.text
-    button.append(rarity, title, text)
-    if (offer.max > 0) {
-      const pips = document.createElement('span')
-      pips.className = 'pips'
-      pips.textContent = `Rank ${roman(offer.rank)}`
-      button.append(pips)
-    }
+    button.append(img, rarity, name, text)
     if (offer.hint) {
-      const hint = document.createElement('span')
-      hint.className = 'hint'
+      const hint = document.createElement('em')
       hint.textContent = offer.hint
       button.append(hint)
     }
-    const key = document.createElement('kbd')
-    key.textContent = String(index + 1)
-    button.append(key)
     button.addEventListener('click', () => bound?.pick(index))
     cards.append(button)
   })
-  setText('level-syn', activeSynergies(g.ranks).join(' · '))
+  const syn = activeSynergies(g.ranks)
+  setText('level-syn', syn.length ? syn.join(' · ') : '')
+}
+
+function syncLoadout(g: Game): void {
+  const ups = byId('loadout-ups')
+  const downs = byId('loadout-curses')
+  ups.replaceChildren()
+  downs.replaceChildren()
+  const owned = UPGRADES.filter((id) => g.ranks[id] > 0)
+  const cursed = CURSES.filter((id) => g.curses[id] > 0)
+  if (owned.length === 0) ups.append(emptyLine('No wicks yet.'))
+  for (const id of owned) ups.append(row(id, g.ranks[id]))
+  if (cursed.length === 0) downs.append(emptyLine('No curses yet.'))
+  for (const id of cursed) downs.append(row(id, g.curses[id], true))
+  const syn = activeSynergies(g.ranks)
+  setText('loadout-syn', syn.length ? syn.join(' · ') : 'No synergy yet.')
+}
+
+function row(id: UpgradeId | CurseId, rank: number, curse = false): HTMLElement {
+  const li = document.createElement('li')
+  li.className = curse ? 'curse' : ''
+  const img = document.createElement('img')
+  img.alt = ''
+  img.src = iconFor(id)
+  const name = document.createElement('span')
+  name.textContent = `${upgradeName(id)} ${roman(rank)}`
+  li.append(img, name)
+  return li
+}
+
+function emptyLine(text: string): HTMLElement {
+  const li = document.createElement('li')
+  li.className = 'empty'
+  li.textContent = text
+  return li
 }
 
 function syncDead(g: Game, session: Session): void {
-  const sig = `${g.runSerial}|${session.fresh.join(',')}|${session.record}|${session.dailyRecord}`
+  const sig = `${g.runSerial}|${session.record}|${session.fresh.join(',')}`
   if (sig === deadSig) return
   deadSig = sig
-  setText('dead-score', formatScore(g.score))
-  const bits = [session.record ? 'New best' : '', session.dailyRecord ? 'Daily best' : ''].filter(Boolean)
-  setText('dead-record', bits.join(' · '))
+  setText('dead-round', `Round ${g.round}`)
+  const record = byId('dead-record')
+  record.textContent = session.record ? 'Deepest yet.' : session.dailyRecord ? 'Best daily.' : ''
   setText('dead-eulogy', g.eulogy)
   fillRecords(byId('dead-stats'), [
+    ['Round', String(g.round)],
     ['Time', formatTime(g.time)],
-    ['Combo', String(g.comboBest)],
+    ['Briars', String(g.bossKills)],
     ['Slain', String(g.kills)],
-    ['Bosses', String(g.bossKills)],
   ])
-  setText('dead-build', buildPhrase(g.ranks))
-  const names = session.fresh.map((id) => blessingById(id)?.name ?? id)
-  setText('dead-unlocks', names.length ? `Unlocked ${names.join(', ')}. Equip ${names.length > 1 ? 'one' : 'it'} on the next wick.` : '')
+  setText('dead-build', buildPhrase(g.ranks, g.curses))
+  const unlocks = byId('dead-unlocks')
+  unlocks.textContent = session.fresh.length
+    ? `Unlocked ${session.fresh.map((id) => blessingById(id)?.name ?? id).join(', ')}.`
+    : ''
   byId<HTMLInputElement>('dead-seed').value = g.seedLabel
-  byId('again').textContent = g.mode === 'daily' ? 'Retry today' : 'Same seed'
 }
 
 function fillRecords(dl: HTMLElement, rows: [string, string][]): void {

@@ -30,12 +30,10 @@
           </div>
         </div>
         <div class="scoreblock">
-          <div id="score" class="score">0</div>
-          <div id="combo" class="combo"></div>
-          <div id="bestline" class="bestline"></div>
-          <div class="blaze" id="blaze" title="Blaze">
-            <div id="blaze-fill"></div>
-          </div>
+          <div id="round-label" class="score">Round 1</div>
+          <div id="foes" class="combo"></div>
+          <div id="event-line" class="bestline" hidden></div>
+          <div id="glyph-row" class="glyphs"></div>
         </div>
         <div class="timeblock">
           <div id="clock">0:00</div>
@@ -48,9 +46,7 @@
       </div>
       <div class="bottom">
         <div class="levelblock">
-          <div id="level">Level 1</div>
-          <div class="xp"><div id="xp-fill"></div></div>
-          <div id="synergy-line"></div>
+          <button id="loadout-btn" type="button">Build</button>
           <button id="pause-btn" type="button" hidden>Pause</button>
         </div>
         <button id="burst" type="button">Burst</button>
@@ -69,7 +65,7 @@
         <p class="kicker">Survival arcade</p>
         <h1>Wick</h1>
         <p class="lede">
-          The flame is hungry. So is the dark. Feed it embers, draft a build, and see how long one wick can last.
+          Clear the round. Draft a wick. Every fifth dark, take a curse and face the briar.
         </p>
         <div class="row">
           <button id="play" class="primary" type="button">Light the wick</button>
@@ -99,12 +95,28 @@
         <div id="empty-records" class="note">No burns yet. The first one teaches the wick.</div>
         <dl class="records" id="records" hidden></dl>
         <ol id="history" class="history" hidden></ol>
-        <p class="keys">Mouse, stick, or WASD to move · Space, click, or Burst · Esc pauses · M mutes</p>
+        <p class="keys">You choose mouse or keys before each burn · Space or Burst · Esc pauses · M mutes</p>
+      </section>
+
+      <section id="panel-steer" class="panel" hidden>
+        <p class="kicker">Before the dark</p>
+        <h2>How does the flame move?</h2>
+        <p class="lede">Pick one. The other will not steer this run. Burst stays on Space, click, and the Burst button.</p>
+        <div class="choices">
+          <button id="steer-mouse" class="choice primary" type="button">
+            <strong>Mouse</strong>
+            <span>The cursor pulls the flame. A touch drag does the same.</span>
+          </button>
+          <button id="steer-keys" class="choice" type="button">
+            <strong>Keys</strong>
+            <span>WASD or arrows. A gamepad stick counts as keys.</span>
+          </button>
+        </div>
       </section>
 
       <section id="panel-level" class="panel wide" hidden>
-        <p class="kicker">The wick changes</p>
-        <h2>Choose one</h2>
+        <p class="kicker" id="level-kicker">The wick changes</p>
+        <h2 id="level-title">Choose one</h2>
         <div id="cards" class="cards"></div>
         <p class="keys" id="level-keys">Keys 1, 2, 3</p>
         <p class="syn-live" id="level-syn"></p>
@@ -118,12 +130,23 @@
           <button id="resume" class="primary" type="button">Resume</button>
           <button id="give-up" class="ghost" type="button">End run</button>
         </div>
-        <p class="keys">WASD or mouse · Space or click to burst · Esc resumes · M mutes</p>
+        <p class="keys">Esc resumes · M mutes · Build lists every wick and curse</p>
+      </section>
+
+      <section id="panel-loadout" class="panel" hidden>
+        <p class="kicker">Carried flame</p>
+        <h2>Build</h2>
+        <p id="loadout-syn" class="note"></p>
+        <h3>Wicks</h3>
+        <ul id="loadout-ups" class="loadlist"></ul>
+        <h3>Curses</h3>
+        <ul id="loadout-curses" class="loadlist"></ul>
+        <button id="loadout-close" class="ghost" type="button">Close</button>
       </section>
 
       <section id="panel-dead" class="panel" hidden aria-live="polite">
         <p class="kicker">Snuffed</p>
-        <p class="big-score" id="dead-score">0</p>
+        <p class="big-score" id="dead-round">Round 1</p>
         <p class="record" id="dead-record"></p>
         <h2 id="dead-eulogy"></h2>
         <dl class="stats" id="dead-stats"></dl>

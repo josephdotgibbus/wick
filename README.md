@@ -1,20 +1,21 @@
 # WICK
 
-A short, endlessly replayable survival game. You are a wick in the dark. Heat is your life, and it is always starving. Enemies carry the embers that feed it. Draft a build, chain a combo into an inferno, and see how long one flame can last.
-
-Runs are a minute or two when you're learning and much longer once a build comes together. Death is immediate to retry. The same seed deals the same spawns, so a loss is something you can answer.
+A boss-rush survival game. You are a wick in an endless dark. Heat is your life. Each round ends when every shadow that arrived is gone. Then you draft a wick. Every fifth round you take a curse instead, and the Briar wakes.
 
 ## Play
 
-- **Move:** mouse (pull away from the flame), WASD or arrows, left stick, or a touch drag.
-- **Burst:** Space, click, a second finger, the on-screen Burst button, or the south gamepad button. Burst spends a little heat, cuts through bodies, and slips cold rings.
-- **Draft:** when the wick levels, pick one of three changes. Some pairs name a synergy and start behaving differently.
-- **Blaze:** collecting embers in a combo fills the ring around the flame. A full ring is an Inferno: damage jumps and the wick almost stops starving.
-- **Pause:** the Pause button, Esc, or P. M mutes. R retries the same seed after a loss.
+- **Steer:** before the run, choose mouse or keys. Only that one moves the flame.
+- **Mouse:** the cursor pulls the flame. A touch drag does the same.
+- **Keys:** WASD, arrows, or a gamepad stick.
+- **Burst:** Space, click, or the Burst button. It spends a little heat and cuts what it passes through.
+- **Draft:** clear a round, pick one of three wicks. Pairs name a synergy.
+- **Curses:** every fifth clear, you must take a curse. Build lists both.
+- **Sparks:** small flames on the ground restore heat. There is no score and no streak.
+- **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss.
 
-Shades sprint in the dark and stumble in your light. Poppers bloom when they die. Bosses throw expanding rings of cold.
+Wisps are small, red-eyed, and leave a cloudy trail. After round 3, a red one sometimes stops and draws a laser. Stones block you. Pits and bramble get worse as the rounds climb. From round 6 on, half of the rounds twist: slick ash, extra rock, a thicker dark.
 
-Endless mode chases your best score. The daily burn uses one shared seed per UTC day. Any phrase can be a seed, and a code like `WICK-AB12-CD34` replays that pattern. Blessings unlock from bests and change the way the next wick starts. Everything is saved in this browser.
+The same seed deals the same land. Blessings unlock from the deepest round and change the next start. Everything is saved in this browser.
 
 ## Run locally
 

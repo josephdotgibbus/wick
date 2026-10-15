@@ -1,35 +1,36 @@
 import { BLESSINGS, type BestMarks } from './content.ts'
+import type { ControlMode } from './types.ts'
 import { dailyKey } from './rng.ts'
 
-const KEY = 'wick-save-v1'
+const KEY = 'wick-save-v2'
+const OLD = 'wick-save-v1'
 
 export interface HistoryEntry {
-  score: number
+  round: number
   time: number
-  combo: number
+  bosses: number
   seed: string
   mode: string
 }
 
 export interface Save {
-  bestScore: number
+  bestRound: number
   bestTime: number
-  bestCombo: number
   bosses: number
   runs: number
   lifetime: number
   unlocks: string[]
   blessing: string
   muted: boolean
+  control: ControlMode
   dailyDay: string
-  dailyScore: number
+  dailyRound: number
   history: HistoryEntry[]
 }
 
 export interface FinishedRun {
-  score: number
+  round: number
   time: number
-  combo: number
   bossKills: number
   seedLabel: string
   mode: string
@@ -43,17 +44,17 @@ export interface CommitResult {
 
 function empty(): Save {
   return {
-    bestScore: 0,
+    bestRound: 0,
     bestTime: 0,
-    bestCombo: 0,
     bosses: 0,
     runs: 0,
     lifetime: 0,
     unlocks: [],
     blessing: 'bare',
     muted: false,
+    control: 'mouse',
     dailyDay: '',
-    dailyScore: 0,
+    dailyRound: 0,
     history: [],
   }
 }
@@ -69,18 +70,27 @@ function knownBlessing(id: string): boolean {
 export function loadSave(): Save {
   const save = empty()
   try {
+    const old = localStorage.getItem(OLD)
+    if (old) {
+      const parsed = JSON.parse(old) as { muted?: boolean }
+      save.muted = Boolean(parsed.muted)
+    }
+  } catch {
+    /* old save is optional */
+  }
+  try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return save
     const parsed = JSON.parse(raw) as Partial<Save>
-    save.bestScore = num(parsed.bestScore)
+    save.bestRound = num(parsed.bestRound)
     save.bestTime = num(parsed.bestTime)
-    save.bestCombo = num(parsed.bestCombo)
     save.bosses = num(parsed.bosses)
     save.runs = num(parsed.runs)
     save.lifetime = num(parsed.lifetime)
     save.muted = Boolean(parsed.muted)
+    save.control = parsed.control === 'keys' ? 'keys' : 'mouse'
     save.dailyDay = typeof parsed.dailyDay === 'string' ? parsed.dailyDay : ''
-    save.dailyScore = num(parsed.dailyScore)
+    save.dailyRound = num(parsed.dailyRound)
     if (Array.isArray(parsed.unlocks)) {
       save.unlocks = parsed.unlocks.filter((id): id is string => typeof id === 'string' && knownBlessing(id) && id !== 'bare')
     }
@@ -90,9 +100,9 @@ export function loadSave(): Save {
         .filter((h): h is HistoryEntry => !!h && typeof h === 'object')
         .slice(0, 6)
         .map((h) => ({
-          score: num(h.score),
+          round: num(h.round),
           time: num(h.time),
-          combo: num(h.combo),
+          bosses: num(h.bosses),
           seed: typeof h.seed === 'string' ? h.seed : '',
           mode: typeof h.mode === 'string' ? h.mode : 'endless',
         }))
@@ -113,7 +123,7 @@ export function persist(save: Save): void {
 }
 
 export function marksOf(save: Save): BestMarks {
-  return { score: save.bestScore, time: save.bestTime, combo: save.bestCombo, bosses: save.bosses }
+  return { round: save.bestRound, time: save.bestTime, bosses: save.bosses }
 }
 
 export function allowedBlessing(save: Save): string {
@@ -135,30 +145,34 @@ export function setMuted(save: Save, muted: boolean): void {
   persist(save)
 }
 
+export function setControl(save: Save, control: ControlMode): void {
+  save.control = control
+  persist(save)
+}
+
 export function todayBest(save: Save, day = dailyKey()): number {
-  return save.dailyDay === day ? save.dailyScore : 0
+  return save.dailyDay === day ? save.dailyRound : 0
 }
 
 export function commitRun(save: Save, run: FinishedRun): CommitResult {
-  const record = run.score > save.bestScore
+  const record = run.round > save.bestRound
   const day = dailyKey()
-  const prevDaily = save.dailyDay === day ? save.dailyScore : 0
-  const dailyRecord = run.mode === 'daily' && run.score > prevDaily
+  const prevDaily = save.dailyDay === day ? save.dailyRound : 0
+  const dailyRecord = run.mode === 'daily' && run.round > prevDaily
 
   save.runs += 1
-  save.lifetime += run.score
-  save.bestScore = Math.max(save.bestScore, run.score)
+  save.lifetime += run.round
+  save.bestRound = Math.max(save.bestRound, run.round)
   save.bestTime = Math.max(save.bestTime, run.time)
-  save.bestCombo = Math.max(save.bestCombo, run.combo)
   save.bosses += run.bossKills
   if (run.mode === 'daily') {
     save.dailyDay = day
-    save.dailyScore = Math.max(prevDaily, run.score)
+    save.dailyRound = Math.max(prevDaily, run.round)
   }
   save.history.unshift({
-    score: run.score,
+    round: run.round,
     time: run.time,
-    combo: run.combo,
+    bosses: run.bossKills,
     seed: run.seedLabel,
     mode: run.mode,
   })

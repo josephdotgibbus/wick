@@ -7,11 +7,13 @@ import { render } from './render.ts'
 import { dailySeed, parseSeed, randomSeed } from './rng.ts'
 import {
   chooseUpgrade,
+  confirmControl,
   createGame,
   endRun,
   enterMenu,
-  startRun,
+  queueRun,
   tick,
+  toggleLoadout,
   togglePause,
 } from './sim.ts'
 import {
@@ -19,6 +21,7 @@ import {
   commitRun,
   loadSave,
   setBlessing,
+  setControl,
   setMuted,
   todayBest,
   type Save,
@@ -123,6 +126,14 @@ mount({
   burst: () => {
     if (game.state === 'playing') queueBurst()
   },
+  steer: (mode) => {
+    sound.unlock()
+    sound.ui()
+    setControl(save, mode)
+    game.control = mode
+    confirmControl(game, mode)
+  },
+  loadout: () => toggleLoadout(game),
 })
 function begin(mode: Mode, seed: number): void {
   sound.unlock()
@@ -130,11 +141,12 @@ function begin(mode: Mode, seed: number): void {
   mouseSeen = false
   burstQueued = false
   const blessing = allowedBlessing(save)
-  const bestAtStart = mode === 'daily' ? todayBest(save) : save.bestScore
+  const bestAtStart = mode === 'daily' ? todayBest(save) : save.bestRound
   session.fresh = []
   session.record = false
   session.dailyRecord = false
-  startRun(game, {
+  game.control = save.control
+  queueRun(game, {
     mode,
     seed,
     blessing,
@@ -162,6 +174,16 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Enter' && game.state === 'menu' && !(event.target instanceof HTMLButtonElement)) {
     event.preventDefault()
     begin('endless', randomSeed())
+  }
+  if (game.state === 'steer' && !event.repeat) {
+    if (event.code === 'Digit1' || event.code === 'Numpad1') {
+      setControl(save, 'mouse')
+      confirmControl(game, 'mouse')
+    }
+    if (event.code === 'Digit2' || event.code === 'Numpad2') {
+      setControl(save, 'keys')
+      confirmControl(game, 'keys')
+    }
   }
   if (game.state === 'levelup') {
     const index = { Digit1: 0, Numpad1: 0, Digit2: 1, Numpad2: 1, Digit3: 2, Numpad3: 2 }[event.code]
@@ -225,19 +247,22 @@ window.addEventListener('pointercancel', (event) => {
 canvas.addEventListener('contextmenu', (event) => event.preventDefault())
 
 function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: number; ay: number } | null } {
+  const keysOn = game.control === 'keys'
   let ax = 0
   let ay = 0
-  if (keys.has('KeyA') || keys.has('ArrowLeft')) ax -= 1
-  if (keys.has('KeyD') || keys.has('ArrowRight')) ax += 1
-  if (keys.has('KeyW') || keys.has('ArrowUp')) ay -= 1
-  if (keys.has('KeyS') || keys.has('ArrowDown')) ay += 1
-  if (ax !== 0 || ay !== 0) {
-    const m = Math.hypot(ax, ay)
-    return { input: { ax: ax / m, ay: ay / m, burst: takeBurst() }, steer: null }
+  if (keysOn) {
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) ax -= 1
+    if (keys.has('KeyD') || keys.has('ArrowRight')) ax += 1
+    if (keys.has('KeyW') || keys.has('ArrowUp')) ay -= 1
+    if (keys.has('KeyS') || keys.has('ArrowDown')) ay += 1
+    if (ax !== 0 || ay !== 0) {
+      const m = Math.hypot(ax, ay)
+      return { input: { ax: ax / m, ay: ay / m, burst: takeBurst() }, steer: null }
+    }
   }
 
   const pad = readPad()
-  if (pad && (Math.hypot(pad.x, pad.y) > 0.22 || pad.burst)) {
+  if (keysOn && pad && (Math.hypot(pad.x, pad.y) > 0.22 || pad.burst)) {
     const m = Math.hypot(pad.x, pad.y)
     const mag = m < 0.22 ? 0 : Math.min(1, (m - 0.22) / 0.7)
     return {
@@ -246,7 +271,7 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     }
   }
 
-  if (steerId !== null && game.state === 'playing') {
+  if (!keysOn && steerId !== null && game.state === 'playing') {
     const dx = touchX - originX
     const dy = touchY - originY
     const d = Math.hypot(dx, dy)
@@ -259,7 +284,7 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     }
   }
 
-  if (mouseSeen && game.state === 'playing' && !pointerOverUi(mouseX, mouseY)) {
+  if (!keysOn && mouseSeen && game.state === 'playing' && !pointerOverUi(mouseX, mouseY)) {
     const dx = mouseX - viewW / 2
     const dy = mouseY - viewH / 2
     const d = Math.hypot(dx, dy)
@@ -294,17 +319,14 @@ function readPad(): { x: number; y: number; burst: boolean } | null {
 
 function playEvents(g: Game): void {
   for (const event of g.events) {
-    if (event.type === 'collect') sound.collect(event.combo)
+    if (event.type === 'collect') sound.collect(1)
     else if (event.type === 'hurt') sound.hurt()
     else if (event.type === 'burst') sound.burst()
     else if (event.type === 'level') sound.level()
     else if (event.type === 'die') sound.die()
-    else if (event.type === 'inferno') sound.inferno()
     else if (event.type === 'boss') sound.boss()
     else if (event.type === 'bossdead') sound.bossdead()
     else if (event.type === 'beam') sound.beam()
-    else if (event.type === 'nova') sound.nova()
-    else if (event.type === 'best') sound.best()
   }
 }
 
@@ -312,9 +334,8 @@ function settle(g: Game, current: Save): void {
   if (g.state !== 'dead' || committed === g.runSerial) return
   committed = g.runSerial
   const result = commitRun(current, {
-    score: g.score,
+    round: g.round,
     time: g.time,
-    combo: g.comboBest,
     bossKills: g.bossKills,
     seedLabel: g.seedLabel,
     mode: g.mode,
@@ -334,8 +355,8 @@ function frame(now: number): void {
     playEvents(game)
     settle(game, save)
     const heat = game.mods.maxHeat <= 0 ? 0 : Math.max(0, game.heat) / game.mods.maxHeat
-    const boss = game.enemies.some((e) => e.kind === 'boss')
-    sound.mood(heat, game.inferno > 0, boss, game.state === 'playing' || game.state === 'dying')
+    const boss = game.enemies.some((e) => e.kind === 'boss' && !e.dead)
+    sound.mood(heat, false, boss, game.state === 'playing' || game.state === 'dying')
     render(ctx, game, { wall: now / 1000, dpr, width: viewW, height: viewH, steer })
     sync(game, save, session)
   }
