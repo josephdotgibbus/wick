@@ -196,6 +196,7 @@ export interface Particle {
   size: number
   color: string
   grav: number
+  behind?: boolean
 }
 
 export interface Floater {

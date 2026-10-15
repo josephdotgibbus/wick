@@ -1,5 +1,5 @@
 import { lightOf } from './content.ts'
-import type { Bullet, Decor, Enemy, Game, Obstacle } from './types.ts'
+import type { Bullet, Decor, Enemy, Game, Obstacle, Particle } from './types.ts'
 
 const TAU = Math.PI * 2
 
@@ -51,6 +51,8 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   }
   for (const wline of g.warnings) drawWarning(ctx, wline.x, wline.y, wline.ang, wline.len, wline.life / wline.max, wline.thin)
   for (const beam of g.beams) drawBeam(ctx, beam.x, beam.y, beam.ang, beam.len, beam.width, beam.life / beam.max, beam.color)
+  for (const p of g.particles) if (p.behind) drawParticle(ctx, p)
+  ctx.globalAlpha = 1
   if (menu) {
     for (const d of g.decor) drawDecor(ctx, d, g.menuT)
   }
@@ -67,13 +69,7 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.setLineDash([])
   }
   drawFlame(ctx, g, view.wall)
-  for (const p of g.particles) {
-    ctx.globalAlpha = Math.max(0, p.life / p.max)
-    ctx.fillStyle = p.color
-    ctx.beginPath()
-    ctx.arc(p.x, p.y, p.size, 0, TAU)
-    ctx.fill()
-  }
+  for (const p of g.particles) if (!p.behind) drawParticle(ctx, p)
   ctx.globalAlpha = 1
   for (const f of g.floaters) {
     ctx.globalAlpha = Math.max(0, f.life / f.max)
@@ -101,6 +97,14 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.fillRect(0, 0, w, h)
   }
   if (view.steer && g.control === 'mouse') drawStick(ctx, view.steer)
+}
+
+function drawParticle(ctx: CanvasRenderingContext2D, p: Particle): void {
+  ctx.globalAlpha = Math.max(0, p.life / p.max)
+  ctx.fillStyle = p.color
+  ctx.beginPath()
+  ctx.arc(p.x, p.y, p.size, 0, TAU)
+  ctx.fill()
 }
 
 function drawGround(ctx: CanvasRenderingContext2D, px: number, py: number, w: number, h: number): void {

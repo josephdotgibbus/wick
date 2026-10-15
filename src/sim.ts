@@ -680,18 +680,27 @@ function stepEnemies(g: Game, dt: number): void {
     else stepWisp(g, e, dt, haste * slow, strong)
     e.trail -= dt
     if (e.kind !== 'boss' && e.trail <= 0) {
-      e.trail = 0.07
-      g.particles.push({
-        x: e.x,
-        y: e.y,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
-        life: 0.7,
-        max: 0.7,
-        size: e.kind === 'cinder' ? 7 : 9,
-        color: e.kind === 'cinder' ? 'rgba(90, 18, 14, 0.45)' : 'rgba(28, 24, 26, 0.55)',
-        grav: 0,
-      })
+      const speed = Math.hypot(e.vx, e.vy)
+      if (speed > 12) {
+        e.trail = 0.07
+        const nx = e.vx / speed
+        const ny = e.vy / speed
+        const size = e.kind === 'cinder' ? 7 : 9
+        const back = e.r * 1.8 + size + 1
+        const side = (Math.random() - 0.5) * e.r * 0.3
+        g.particles.push({
+          x: e.x - nx * back - ny * side,
+          y: e.y - ny * back + nx * side,
+          vx: -nx * 8,
+          vy: -ny * 8,
+          life: 0.7,
+          max: 0.7,
+          size,
+          color: e.kind === 'cinder' ? 'rgba(90, 18, 14, 0.45)' : 'rgba(28, 24, 26, 0.55)',
+          grav: 0,
+          behind: true,
+        })
+      }
     }
     if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch * strong, e.name)
   }
@@ -1195,6 +1204,7 @@ function stepCosmetics(g: Game, dt: number): void {
     p.x += p.vx * dt
     p.y += p.vy * dt
   }
+  keepTrailsOffEnemies(g)
   compact(g.particles, (p) => p.life <= 0)
   if (g.particles.length > 420) g.particles.splice(0, g.particles.length - 420)
   for (const f of g.floaters) {
@@ -1203,6 +1213,31 @@ function stepCosmetics(g: Game, dt: number): void {
   }
   compact(g.floaters, (f) => f.life <= 0)
   for (const d of g.decor) d.spin += d.speed * dt
+}
+
+function keepTrailsOffEnemies(g: Game): void {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const p of g.particles) {
+      if (!p.behind) continue
+      for (const e of g.enemies) {
+        if (e.dead) continue
+        const halo = e.kind === 'boss' ? e.r * 1.35 : e.r * 1.8
+        const min = halo + p.size + 1
+        let dx = p.x - e.x
+        let dy = p.y - e.y
+        let d = Math.hypot(dx, dy)
+        if (d >= min) continue
+        if (d < 0.001) {
+          dx = min
+          dy = 0
+          d = min
+        }
+        const push = (min - d) / d
+        p.x += dx * push
+        p.y += dy * push
+      }
+    }
+  }
 }
 
 function puff(g: Game, x: number, y: number, color: string, n: number, speed: number, life: number, size: number): void {
