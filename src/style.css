@@ -591,8 +591,8 @@ fieldset {
 }
 
 .card:hover, .card:focus-visible {
-  border-color: var(--ember);
   transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 
 .card h3 { margin: 0; font-size: 28px; }
@@ -606,9 +606,23 @@ fieldset {
 }
 
 .rarity-common { color: #b6a89a; }
-.rarity-rare { color: #ff8a3d; }
-.rarity-legend { color: #ffe1a3; }
-.rarity-boon { color: #9fd4c2; }
+.rarity-uncommon { color: #ff8a3d; }
+.rarity-rare { color: #ffe1a3; }
+.rarity-curse { color: #e15a5a; }
+.card.rarity-common { border-color: rgba(182, 168, 154, 0.55); }
+.card.rarity-uncommon { border-color: rgba(255, 138, 61, 0.7); }
+.card.rarity-rare { border-color: rgba(255, 225, 163, 0.75); }
+.rarity-key {
+  margin: 0 0 4px;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.rarity-key span {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
 
 .pips { color: var(--cream); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 
@@ -678,6 +692,9 @@ fieldset {
 .glyph { margin: 0; width: 28px; }
 .glyph img { width: 28px; height: 28px; display: block; border-radius: 6px; }
 .glyph figcaption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.glyph.rarity-common img { outline: 1px solid rgba(182, 168, 154, 0.85); }
+.glyph.rarity-uncommon img { outline: 1px solid rgba(255, 138, 61, 0.9); }
+.glyph.rarity-rare img { outline: 1px solid rgba(255, 225, 163, 0.95); }
 .glyph.curse img { outline: 1px solid rgba(225, 90, 90, 0.7); }
 
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -715,7 +732,7 @@ fieldset {
 .loadlist strong { font-weight: 560; }
 .loadlist small { color: var(--dim); font-size: 13px; line-height: 1.35; }
 .loadlist .empty { color: var(--dim); }
-.loadlist .curse strong { color: #e7b0a8; }
+.loadlist .curse strong { color: #e15a5a; }
 #loadout-btn, #loadout-close { margin-top: 8px; }
 #event-line { color: var(--gold); }
 

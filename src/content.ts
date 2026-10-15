@@ -66,6 +66,21 @@ const WEIGHT: Record<UpgradeId, number> = {
   glass: 2.5,
 }
 
+export type Rarity = 'common' | 'uncommon' | 'rare'
+
+export function upgradeRarity(id: UpgradeId): Rarity {
+  const weight = WEIGHT[id]
+  if (weight >= 7) return 'common'
+  if (weight >= 5) return 'uncommon'
+  return 'rare'
+}
+
+export function rarityName(rarity: Rarity): string {
+  if (rarity === 'common') return 'Common'
+  if (rarity === 'uncommon') return 'Uncommon'
+  return 'Rare'
+}
+
 export function emptyRanks(): Ranks {
   return {
     kindling: 0,

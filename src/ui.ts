@@ -7,8 +7,10 @@ import {
   buildPhrase,
   effectOf,
   iconFor,
+  rarityName,
   roman,
   upgradeName,
+  upgradeRarity,
 } from './content.ts'
 import { formatTime } from './format.ts'
 import { dailyKey, dailySeed, formatSeed } from './rng.ts'
@@ -234,7 +236,7 @@ function paintGlyphs(g: Game): void {
   row.replaceChildren()
   for (const id of UPGRADES) {
     if (g.ranks[id] <= 0) continue
-    row.append(glyph(id, roman(g.ranks[id])))
+    row.append(glyph(id, roman(g.ranks[id]), false, upgradeRarity(id)))
   }
   for (const id of CURSES) {
     if (g.curses[id] <= 0) continue
@@ -242,9 +244,9 @@ function paintGlyphs(g: Game): void {
   }
 }
 
-function glyph(id: string, rank: string, curse = false): HTMLElement {
+function glyph(id: string, rank: string, curse = false, rarity = ''): HTMLElement {
   const fig = document.createElement('figure')
-  fig.className = curse ? 'glyph curse' : 'glyph'
+  fig.className = curse ? 'glyph curse' : `glyph rarity-${rarity}`
   const img = document.createElement('img')
   img.alt = ''
   img.src = iconFor(id)
@@ -263,6 +265,7 @@ function syncLevel(g: Game): void {
   const curse = g.offers[0]?.kind === 'curse'
   setText('level-kicker', curse ? 'A penalty you must take' : 'One upgrade')
   setText('level-title', curse ? 'Take a curse' : 'Choose one')
+  byId('level-rarity').hidden = curse
   if (g.offerSerial === offerSig) return
   offerSig = g.offerSerial
   const cards = byId('cards')
@@ -270,18 +273,21 @@ function syncLevel(g: Game): void {
   g.offers.forEach((offer, index) => {
     const button = document.createElement('button')
     button.type = 'button'
-    button.className = offer.kind === 'curse' ? 'card curse' : 'card'
     const img = document.createElement('img')
     img.alt = ''
     img.src = offer.icon
     const rarity = document.createElement('span')
-    rarity.className = 'rarity'
-    rarity.textContent =
-      offer.kind === 'curse'
-        ? `Curse ${roman(offer.rank)} of ${roman(offer.max)}`
-        : offer.max <= 1
-          ? 'Only once'
-          : `Rank ${roman(offer.rank)} of ${roman(offer.max)}`
+    const taken = offer.max <= 1 ? 'Only once' : `Rank ${roman(offer.rank)} of ${roman(offer.max)}`
+    if (offer.kind === 'curse') {
+      button.className = 'card curse'
+      rarity.className = 'rarity rarity-curse'
+      rarity.textContent = `Curse · ${taken}`
+    } else {
+      const tier = upgradeRarity(offer.id as UpgradeId)
+      button.className = `card rarity-${tier}`
+      rarity.className = `rarity rarity-${tier}`
+      rarity.textContent = `${rarityName(tier)} · ${taken}`
+    }
     const name = document.createElement('strong')
     name.textContent = offer.name
     const text = document.createElement('p')
@@ -324,7 +330,14 @@ function row(id: UpgradeId | CurseId, rank: number, curse = false): HTMLElement 
   img.src = iconFor(id)
   const name = document.createElement('span')
   const title = document.createElement('strong')
-  title.textContent = `${upgradeName(id)} ${roman(rank)}`
+  if (curse) {
+    title.className = 'rarity-curse'
+    title.textContent = `${upgradeName(id)} ${roman(rank)}`
+  } else {
+    const tier = upgradeRarity(id as UpgradeId)
+    title.className = `rarity-${tier}`
+    title.textContent = `${rarityName(tier)} · ${upgradeName(id)} ${roman(rank)}`
+  }
   const detail = document.createElement('small')
   detail.textContent = effectOf(id, rank)
   name.append(title, detail)

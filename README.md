@@ -2,7 +2,7 @@
 
 A boss-rush survival game. You are a flame in the dark. The heat bar is your life: it drains on its own, and touching an enemy spends more. Sparks on the ground fill it back up. There is no score.
 
-Each round ends when every enemy that was going to arrive is dead. Shots fire at the nearest enemy by themselves. Then you pick one of three upgrades. The card says what that upgrade does. Every fifth round you fight the Briar and must take a curse. Upgrades lists everything you are carrying, with the effect written out.
+Each round ends when every enemy that was going to arrive is dead. Shots fire at the nearest enemy by themselves. Then you pick one of three upgrades. The card says what that upgrade does. Its color is how often it is offered: gray is common, orange is uncommon, gold is rare. Every fifth round you fight the Briar and must take a curse, shown in red. Upgrades lists everything you are carrying, with the effect written out.
 
 ## Play
 
