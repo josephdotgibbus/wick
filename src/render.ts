@@ -237,12 +237,27 @@ function drawBeam(
   ctx.translate(x, y)
   ctx.rotate(ang)
   ctx.globalAlpha = Math.max(0.2, life)
-  ctx.fillStyle = color
+  const fadeAt = 0.58
+  const body = ctx.createLinearGradient(0, 0, len, 0)
+  body.addColorStop(0, color)
+  body.addColorStop(fadeAt, color)
+  body.addColorStop(1, clearTint(color))
+  ctx.fillStyle = body
   ctx.fillRect(0, -width / 2, len, width)
-  ctx.fillStyle = 'rgba(255, 244, 230, 0.85)'
+  const core = ctx.createLinearGradient(0, 0, len, 0)
+  core.addColorStop(0, 'rgba(255, 244, 230, 0.9)')
+  core.addColorStop(fadeAt, 'rgba(255, 244, 230, 0.65)')
+  core.addColorStop(1, 'rgba(255, 244, 230, 0)')
+  ctx.fillStyle = core
   ctx.fillRect(0, -0.6, len, 1.2)
   ctx.restore()
   ctx.globalAlpha = 1
+}
+
+function clearTint(color: string): string {
+  const match = color.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/)
+  if (!match) return 'rgba(255, 70, 48, 0)'
+  return `rgba(${match[1]}, ${match[2]}, ${match[3]}, 0)`
 }
 
 function drawDecor(ctx: CanvasRenderingContext2D, d: Decor, t: number): void {
