@@ -91,6 +91,7 @@ export function createGame(): Game {
     offerSerial: 0,
     pickLock: 0,
     clearT: -1,
+    gathering: false,
     banner: null,
     hint: '',
     tutor: false,
@@ -291,6 +292,7 @@ function beginRound(g: Game): void {
   if (g.round > 1) g.hint = ''
   scatterTerrain(g)
   g.coalSpent = false
+  g.gathering = false
   g.incoming = []
 
   if (g.round % 5 === 0) {
@@ -340,15 +342,24 @@ function placeRing(g: Game, r: number, minDist: number): Obstacle {
 function watchClear(g: Game, dt: number): void {
   if (g.incoming.length > 0 || g.enemies.some((e) => !e.dead)) {
     g.clearT = -1
+    g.gathering = false
     return
   }
   if (g.enemies.some((e) => !e.dead && e.spawnLeft > 0)) return
-  if (g.clearT < 0) g.clearT = 0.55
+  if (!g.gathering) {
+    g.gathering = true
+    for (const spark of g.sparks) {
+      if (!spark.taken) spark.life = Math.max(spark.life, 30)
+    }
+  }
+  if (g.sparks.some((spark) => !spark.taken)) return
+  if (g.clearT < 0) g.clearT = 0.28
   else g.clearT -= dt
   if (g.clearT > 0) return
   const kind = g.round % 5 === 0 ? 'curse' : 'upgrade'
   g.offers = rollOffers(g.rng, g.ranks, g.curses, kind)
   g.offerSerial += 1
+  g.gathering = false
   g.state = 'levelup'
   g.loadoutOpen = false
   g.banner = null
@@ -420,8 +431,21 @@ function stepHazards(g: Game, dt: number): void {
 }
 
 function stepSparks(g: Game, dt: number): void {
+  if (g.gathering) {
+    const pull = 860 * dt
+    for (const s of g.sparks) {
+      if (s.taken) continue
+      const dx = g.player.x - s.x
+      const dy = g.player.y - s.y
+      const d = Math.hypot(dx, dy) || 1
+      const step = Math.min(d, pull)
+      s.x += (dx / d) * step
+      s.y += (dy / d) * step
+      if (d - step < 18) takeSpark(g, s)
+    }
+  }
   const reach = 18 + g.mods.magnet
-  const pools = [...sparksNear(g, g.player.x, g.player.y), ...g.sparks]
+  const pools = g.gathering ? sparksNear(g, g.player.x, g.player.y) : [...sparksNear(g, g.player.x, g.player.y), ...g.sparks]
   for (const s of pools) {
     if (s.taken) continue
     if (s.life > 0) {
@@ -430,19 +454,22 @@ function stepSparks(g: Game, dt: number): void {
     }
     const d = Math.hypot(s.x - g.player.x, s.y - g.player.y)
     if (d < reach) {
-      const pull = d < 16 ? 1 : 140 * dt / Math.max(16, d)
-      s.x += (g.player.x - s.x) * Math.min(1, pull)
-      s.y += (g.player.y - s.y) * Math.min(1, pull)
+      const tug = d < 16 ? 1 : 140 * dt / Math.max(16, d)
+      s.x += (g.player.x - s.x) * Math.min(1, tug)
+      s.y += (g.player.y - s.y) * Math.min(1, tug)
     }
-    if (d < 16) {
-      s.taken = true
-      g.heat = Math.min(g.mods.maxHeat, g.heat + s.value)
-      g.events.push({ type: 'collect' })
-      puff(g, s.x, s.y, 'rgba(255,190,80,0.9)', 5, 40, 0.3, 1.6)
-      if (g.mods.collectRing > 0) scorch(g, s.x, s.y, g.mods.collectRing, 8 + s.value)
-    }
+    if (d < 16) takeSpark(g, s)
   }
-  compact(g.sparks, (s) => s.taken || s.life <= 0)
+  compact(g.sparks, (s) => s.taken || (s.life <= 0 && !g.gathering))
+}
+
+function takeSpark(g: Game, s: Spark): void {
+  if (s.taken) return
+  s.taken = true
+  g.heat = Math.min(g.mods.maxHeat, g.heat + s.value)
+  g.events.push({ type: 'collect' })
+  puff(g, s.x, s.y, 'rgba(255,190,80,0.9)', 5, 40, 0.3, 1.6)
+  if (g.mods.collectRing > 0) scorch(g, s.x, s.y, g.mods.collectRing, 8 + s.value)
 }
 
 function starve(g: Game, dt: number): void {
@@ -646,6 +673,7 @@ function stepEnemies(g: Game, dt: number): void {
     }
     if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch * strong, e.name)
   }
+  separateEnemies(g)
   for (const w of g.warnings) w.life -= dt
   compact(g.warnings, (w) => w.life <= 0)
   for (const beam of g.beams) beam.life -= dt
@@ -818,6 +846,42 @@ function looseSpikes(g: Game, e: Enemy): void {
   }
 }
 
+function separateEnemies(g: Game): void {
+  const live = g.enemies.filter((e) => !e.dead)
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < live.length; i++) {
+      const a = live[i]
+      if (!a) continue
+      for (let j = i + 1; j < live.length; j++) {
+        const b = live[j]
+        if (!b) continue
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let dist = Math.hypot(dx, dy)
+        const min = a.r + b.r
+        if (dist >= min) continue
+        if (dist < 0.001) {
+          const ang = ((a.id * 17 + b.id) % 360) * (Math.PI / 180)
+          dx = Math.cos(ang)
+          dy = Math.sin(ang)
+          dist = 1
+        }
+        const push = (min - dist) / 2
+        const nx = dx / dist
+        const ny = dy / dist
+        a.x -= nx * push
+        a.y -= ny * push
+        b.x += nx * push
+        b.y += ny * push
+      }
+    }
+  }
+  for (const e of live) {
+    if (e.kind === 'boss') continue
+    separateCircle(e, e.r, obstaclesNear(g, e.x, e.y))
+  }
+}
+
 function chase(g: Game, e: Enemy, dt: number, speed: number): void {
   const ang = Math.atan2(g.player.y - e.y, g.player.x - e.x)
   e.vx = Math.cos(ang) * speed
@@ -848,7 +912,7 @@ function spawnBoss(g: Game): void {
   e.bossRank = rank
   e.name = 'The Briar'
   e.r = 42 + Math.min(10, rank * 2)
-  e.hp = e.maxHp = 260 + rank * 90 + (g.event === 'strong' ? 40 : 0)
+  e.hp = e.maxHp = 15 * (260 + rank * 90 + (g.event === 'strong' ? 40 : 0))
   e.speed = 46 + rank * 4
   e.aim = g.rng() * TAU
   e.mode = 0
@@ -860,12 +924,13 @@ function spawnBoss(g: Game): void {
 
 function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
   const strong = g.event === 'strong' ? 1.25 : 1
+  const bulk = 1 + Math.max(0, g.round - 1) * 0.45
   const base =
     kind === 'cinder'
-      ? { hp: 54, r: 11, speed: 62, touch: 8, name: 'Cinder wisp' }
+      ? { hp: 54 * bulk, r: 11, speed: 62, touch: 8, name: 'Cinder wisp' }
       : kind === 'boss'
         ? { hp: 260, r: 42, speed: 48, touch: 14, name: 'The Briar' }
-        : { hp: 42, r: 9, speed: 74, touch: 7, name: 'Wisp' }
+        : { hp: 42 * bulk, r: 9, speed: 74, touch: 7, name: 'Wisp' }
   return {
     id: g.nextId++,
     kind,

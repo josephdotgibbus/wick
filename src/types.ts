@@ -320,6 +320,7 @@ export interface Game {
   offerSerial: number
   pickLock: number
   clearT: number
+  gathering: boolean
   banner: Banner | null
   hint: string
   tutor: boolean

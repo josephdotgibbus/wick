@@ -217,8 +217,8 @@ export function activeSynergies(ranks: Ranks): string[] {
 export function modsFrom(ranks: Ranks, curses: Curses): Mods {
   const mods: Mods = {
     shotDamage: 8 + ranks.kindling * 4.2,
-    shotSpeed: 340,
-    shotLife: 0.58,
+    shotSpeed: 168,
+    shotLife: 1.5,
     pierce: ranks.pierce,
     forks: ranks.split,
     forkFrac: 0.55,
@@ -337,20 +337,6 @@ export function upgradeName(id: OfferId): string {
   return CURSE_COPY[id as CurseId].name
 }
 
-export function hintFor(id: OfferId, ranks: Ranks): string | null {
-  if (!(id in PARTNERS)) return null
-  const mates = PARTNERS[id as UpgradeId] ?? []
-  for (const mate of mates) {
-    if (ranks[mate] > 0) {
-      const syn = SYNERGIES.find((s) => (s.a === id && s.b === mate) || (s.b === id && s.a === mate))
-      if (syn) return `With ${UPGRADE_COPY[mate].name}: ${syn.name}`
-    }
-  }
-  const next = mates[0]
-  if (!next) return null
-  return `Pairs with ${UPGRADE_COPY[next].name}`
-}
-
 export function buildPhrase(ranks: Ranks, curses: Curses): string {
   const ups = UPGRADES.filter((id) => ranks[id] > 0).map((id) => `${UPGRADE_COPY[id].name} ${roman(ranks[id])}`)
   const downs = CURSES.filter((id) => curses[id] > 0).map((id) => `${CURSE_COPY[id].name} ${roman(curses[id])}`)
@@ -394,7 +380,7 @@ function upgradeOffer(id: UpgradeId, ranks: Ranks): Offer {
     kind: 'upgrade',
     name: UPGRADE_COPY[id].name,
     text: UPGRADE_COPY[id].text(next),
-    hint: hintFor(id, ranks),
+    hint: null,
     rank: next,
     max: MAX_UP[id],
     icon: iconFor(id),

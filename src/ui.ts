@@ -2,7 +2,6 @@ import {
   BLESSINGS,
   CURSES,
   UPGRADES,
-  activeSynergies,
   blessingById,
   buildPhrase,
   iconFor,
@@ -289,8 +288,7 @@ function syncLevel(g: Game): void {
     button.addEventListener('click', () => bound?.pick(index))
     cards.append(button)
   })
-  const syn = activeSynergies(g.ranks)
-  setText('level-syn', syn.length ? syn.join(' · ') : '')
+  setText('level-syn', '')
 }
 
 function syncLoadout(g: Game): void {
@@ -304,8 +302,7 @@ function syncLoadout(g: Game): void {
   for (const id of owned) ups.append(row(id, g.ranks[id]))
   if (cursed.length === 0) downs.append(emptyLine('No curses yet.'))
   for (const id of cursed) downs.append(row(id, g.curses[id], true))
-  const syn = activeSynergies(g.ranks)
-  setText('loadout-syn', syn.length ? syn.join(' · ') : 'No synergy yet.')
+  setText('loadout-syn', '')
 }
 
 function row(id: UpgradeId | CurseId, rank: number, curse = false): HTMLElement {

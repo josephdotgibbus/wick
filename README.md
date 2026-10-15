@@ -8,7 +8,7 @@ A boss-rush survival game. You are a wick in an endless dark. Heat is your life.
 - **Mouse:** the cursor pulls the flame. A touch drag does the same.
 - **Keys:** WASD, arrows, or a gamepad stick.
 - **Burst:** Space, click, or the Burst button. It spends a little heat and cuts what it passes through.
-- **Draft:** clear a round, pick one of three wicks. Most of them change how sparks behave. Pairs wake a named synergy.
+- **Draft:** clear a round. Dropped sparks fly home, then you pick one of three wicks. Some of them change when kept together.
 - **Curses:** every fifth clear, you must take a curse. Build lists both.
 - **Sparks:** small flames on the ground restore heat. There is no score and no streak.
 - **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss.
