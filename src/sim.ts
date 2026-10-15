@@ -353,7 +353,7 @@ function watchClear(g: Game, dt: number): void {
     }
   }
   if (g.sparks.some((spark) => !spark.taken)) return
-  if (g.clearT < 0) g.clearT = 0.28
+  if (g.clearT < 0) g.clearT = 0.78
   else g.clearT -= dt
   if (g.clearT > 0) return
   const kind = g.round % 5 === 0 ? 'curse' : 'upgrade'

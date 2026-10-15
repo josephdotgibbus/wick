@@ -95,6 +95,7 @@ export function sync(g: Game, save: Save, session: Session): void {
   const shell = byId('shell')
   const overlay = g.state === 'levelup' || g.state === 'paused' || g.state === 'dead' || g.state === 'steer'
   shell.classList.toggle('overlay', overlay)
+  shell.classList.toggle('draft', g.state === 'levelup')
   if (g.state !== shellState) {
     shellState = g.state
     shell.scrollTop = 0
@@ -286,7 +287,11 @@ function syncLevel(g: Game): void {
       button.append(hint)
     }
     button.addEventListener('click', () => bound?.pick(index))
-    cards.append(button)
+    const slot = document.createElement('div')
+    slot.className = 'card-slot'
+    slot.style.setProperty('--i', String(index))
+    slot.append(button)
+    cards.append(slot)
   })
   setText('level-syn', '')
 }
