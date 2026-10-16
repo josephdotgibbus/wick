@@ -1,6 +1,6 @@
 # WICK
 
-A dungeon of rooms. You are a flame in the dark. Hearts take the hits. Heat is the wick: it burns down on its own, and sparks fill it back up. There is no score.
+A dungeon of rooms. You are a flame in the dark. Heat is your life: it burns down on its own, touching an enemy spends more, and sparks fill it back up. There is no score.
 
 Each room holds its own enemies. The doors stay shut until they are dead. A cleared room has a chance to leave a coin, a spark, or a soul heart. Shots fire at the nearest enemy by themselves. The last room is the Briar. After it falls, a chest and a stair appear. The stair starts the next dungeon.
 
@@ -16,10 +16,9 @@ The flame keeps the Binding of Isaac stat line:
 - **Range** starts at 6.50. A shot travels `range × 28` pixels.
 - **Shot speed** starts at 1.00. A shot moves at `150 × shot speed` pixels a second.
 - **Luck** starts at 0. It raises the chance of a room drop and of a chest holding an upgrade.
-- **Red hearts** start at 3. Enemy touches spend half a heart, or a full heart for the Briar, a beam, or a spike.
-- **Soul hearts** start at 0. Damage spends them before red hearts.
+- **Heat** starts at 100. That is your life. A wisp touch spends 9, a red enemy 11, the Briar 16, a beam 14, and a spike 12. The wick also burns down on its own, a little faster than it used to.
 
-A blessing can raise one of those before the run. Reaching later dungeons unlocks them.
+A blessing can raise speed, damage, luck, or your max heat before the run. Reaching later dungeons unlocks them. Kills leave a small spark. Picking one up restores 7 heat.
 
 ## Play
 

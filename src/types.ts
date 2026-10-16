@@ -14,7 +14,7 @@ export type State = 'menu' | 'steer' | 'playing' | 'paused' | 'dying' | 'dead'
 
 export type RoomKind = 'start' | 'combat' | 'treasure' | 'boss'
 
-export type PickupKind = 'coin' | 'spark' | 'soul'
+export type PickupKind = 'coin' | 'spark'
 
 export type NearKind = 'pedestal' | 'chest' | 'stair'
 
@@ -28,11 +28,6 @@ export interface Stats {
   range: number
   shotSpeed: number
   luck: number
-  /** Current and maximum red health, in half-hearts. */
-  red: number
-  redMax: number
-  /** Soul hearts, in half-hearts. Damage spends these before red hearts. */
-  soul: number
 }
 
 export interface Active {
@@ -126,7 +121,7 @@ export interface Enemy {
   maxHp: number
   r: number
   speed: number
-  hearts: number
+  touch: number
   flash: number
   arrive: number
   dead: boolean
@@ -139,6 +134,8 @@ export interface Enemy {
   nextEye: number
   spikes: SpikeSlot[]
   trail: number
+  prevX: number
+  prevY: number
   bossRank: number
 }
 

@@ -6,7 +6,7 @@
  * Active entries go in the one active slot. Using it calls `use` from sim.ts once it is charged.
  * Charges fill by 1 each time a room is cleared. The slot starts empty.
  *
- * Stat fields are added to the player. Health fields are full hearts, not halves.
+ * Stat fields are added to the player. maxHeat raises the wick, which is your life.
  * Leave a field out to leave that stat alone.
  */
 export interface UpgradeDef {
@@ -20,8 +20,7 @@ export interface UpgradeDef {
   range?: number
   shotSpeed?: number
   luck?: number
-  redHearts?: number
-  soulHearts?: number
+  maxHeat?: number
   charges?: number
   use?: string
 }
@@ -45,8 +44,7 @@ export function upgradeDetail(def: UpgradeDef): string {
   if (def.range) parts.push(`Range ${signed(def.range)}`)
   if (def.shotSpeed) parts.push(`Shot speed ${signed(def.shotSpeed)}`)
   if (def.luck) parts.push(`Luck ${signed(def.luck)}`)
-  if (def.redHearts) parts.push(`Red hearts ${signed(def.redHearts)}`)
-  if (def.soulHearts) parts.push(`Soul hearts ${signed(def.soulHearts)}`)
+  if (def.maxHeat) parts.push(`Heat ${signed(def.maxHeat)}`)
   if (def.kind === 'active') parts.push(`Active item. Charges in ${def.charges ?? 1} cleared rooms.`)
   return parts.join(' · ')
 }

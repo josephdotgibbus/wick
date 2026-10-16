@@ -79,7 +79,6 @@ let histSig = ''
 let deadSig = ''
 let shellState = ''
 let loadSig = ''
-let heartSig = ''
 let inspectSig = ''
 
 export function sync(g: Game, save: Save, session: Session): void {
@@ -176,7 +175,7 @@ function paintHud(g: Game): void {
   const ratio = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   fill.style.width = `${ratio * 100}%`
   byId('heat').classList.toggle('desperate', ratio < 0.25)
-  byId('heat-label').textContent = g.heat < 25 ? 'Heat · almost out' : 'Heat · the wick'
+  byId('heat-label').textContent = g.heat < 25 ? 'Heat · almost out' : 'Heat · life'
   byId('round-label').textContent = `Dungeon ${g.dungeon}`
   const here = g.rooms[g.roomIndex]
   const foes = g.enemies.filter((e) => !e.dead).length
@@ -185,26 +184,6 @@ function paintHud(g: Game): void {
   byId('seed-mini').textContent = g.seedLabel
   byId('hint').textContent = g.hint
   byId('coins').textContent = g.coins === 1 ? '1 coin' : `${g.coins} coins`
-  const heartKey = `${g.stats.red}:${g.stats.redMax}:${g.stats.soul}`
-  if (heartKey !== heartSig) {
-    heartSig = heartKey
-    const box = byId('hearts')
-    box.replaceChildren()
-    const containers = Math.ceil(g.stats.redMax / 2)
-    for (let i = 0; i < containers; i++) {
-      const have = g.stats.red - i * 2
-      const heart = document.createElement('i')
-      heart.className = have >= 2 ? 'heart full' : have === 1 ? 'heart half' : 'heart empty'
-      box.append(heart)
-    }
-    const souls = Math.ceil(g.stats.soul / 2)
-    for (let i = 0; i < souls; i++) {
-      const have = g.stats.soul - i * 2
-      const heart = document.createElement('i')
-      heart.className = have >= 2 ? 'heart soul' : 'heart soul half'
-      box.append(heart)
-    }
-  }
   const active = byId('active')
   active.innerHTML = g.active
     ? `${escape(g.active.name)}<small>${g.active.charge}/${g.active.charges}</small>`
@@ -230,14 +209,13 @@ function paintHud(g: Game): void {
 }
 
 function paintStats(g: Game): void {
-  const sig = `${g.stats.damage}:${g.stats.tears}:${g.stats.speed}:${g.passives.join()}|${g.active?.id ?? ''}:${g.active?.charge ?? 0}`
+  const sig = `${g.stats.damage}:${g.stats.tears}:${g.heat}:${g.maxHeat}:${g.passives.join()}|${g.active?.id ?? ''}:${g.active?.charge ?? 0}`
   if (sig === loadSig) return
   loadSig = sig
   const sheet = byId('stat-sheet')
   sheet.replaceChildren()
   for (const line of statLines(g.stats)) addRecord(sheet, line.label, line.value)
-  addRecord(sheet, 'Red hearts', heartText(g.stats.red, g.stats.redMax))
-  addRecord(sheet, 'Soul hearts', heartText(g.stats.soul, g.stats.soul))
+  addRecord(sheet, 'Heat', `${Math.ceil(g.heat)} / ${Math.round(g.maxHeat)}`)
   const list = byId('loadout-ups')
   list.replaceChildren()
   if (!g.passives.length && !g.active) {
@@ -306,11 +284,6 @@ function pauseLine(g: Game): string {
   const held = g.passives.length ? `${g.passives.length} passive` : 'no passives'
   const active = g.active ? g.active.name : 'no active item'
   return `${blessing?.name ?? 'None'} blessing. ${held}. ${active}. ${g.coins} coins.`
-}
-
-function heartText(current: number, max: number): string {
-  if (max <= 0) return '0'
-  return `${(current / 2).toFixed(1).replace('.0', '')} / ${(max / 2).toFixed(1).replace('.0', '')}`
 }
 
 function addRecord(dl: HTMLElement, label: string, value: string): void {

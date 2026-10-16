@@ -1,4 +1,4 @@
-import { applyBlessing, applyUpgrade, baseStats, eulogyFor, EVENT_COPY, lightOf } from './content.ts'
+import { applyBlessing, applyUpgrade, baseStats, eulogyFor, EVENT_COPY, heatBonus, lightOf } from './content.ts'
 import { buildFloor, doorCenter } from './dungeon.ts'
 import { formatSeed, mulberry32 } from './rng.ts'
 import type {
@@ -14,7 +14,7 @@ import type {
   SpikeSlot,
 } from './types.ts'
 import { TILE } from './types.ts'
-import { UPGRADES, upgradeById } from './upgrades.ts'
+import { UPGRADES, upgradeById, type UpgradeDef } from './upgrades.ts'
 
 const TAU = Math.PI * 2
 
@@ -153,6 +153,7 @@ export function startRun(g: Game, opts: RunOptions): void {
   g.tutor = opts.tutor
   g.stats = baseStats()
   applyBlessing(g.stats, opts.blessing)
+  g.maxHeat = 100 + heatBonus(opts.blessing)
   g.heat = g.maxHeat
   g.state = 'playing'
   g.dungeon = 1
@@ -312,7 +313,7 @@ function stepPlayer(g: Game, input: FrameInput, dt: number): void {
     g.burstCd = 1.15
     g.burstAng = ang
     g.facing = ang
-    g.heat = Math.max(1, g.heat - 8)
+    g.heat = Math.max(1, g.heat - 5)
     g.iframes = Math.max(g.iframes, 0.18)
     g.events.push({ type: 'burst' })
     puff(g, g.player.x, g.player.y, 'rgba(255,186,90,0.9)', 8, 90, 0.35, 2.2)
@@ -357,11 +358,11 @@ function stepHazards(g: Game, dt: number): void {
   const here = room(g)
   const tile = tileAt(here, g.player.x, g.player.y)
   if (tile === 3) {
-    g.heat = Math.max(0, g.heat - (6 + g.dungeon) * dt)
+    g.heat = Math.max(0, g.heat - (8 + g.dungeon) * dt)
     if (g.heat <= 0) beginDeath(g, 'a pit')
   } else if (tile === 4 && g.brambleCd <= 0) {
     g.brambleCd = 0.55
-    hurtHearts(g, 1, 'bramble')
+    hurt(g, 9, 'bramble')
   }
 }
 
@@ -373,19 +374,16 @@ function stepPickups(g: Game): void {
     if (item.kind === 'coin') {
       g.coins += 1
       floater(g, item.x, item.y - 12, '+1', '#f0b45a')
-    } else if (item.kind === 'spark') {
-      g.heat = Math.min(g.maxHeat, g.heat + 16)
-      floater(g, item.x, item.y - 12, '+16 heat', '#ffb15a')
     } else {
-      g.stats.soul = Math.min(12, g.stats.soul + 2)
-      floater(g, item.x, item.y - 12, 'Soul heart', '#8ecbff')
+      g.heat = Math.min(g.maxHeat, g.heat + 7)
+      floater(g, item.x, item.y - 12, '+7 heat', '#ffb15a')
     }
     g.events.push({ type: 'collect' })
   }
 }
 
 function starve(g: Game, dt: number): void {
-  const rate = (0.45 + Math.min(1.4, (g.dungeon - 1) * 0.07)) * (g.event === 'starve' ? 1.5 : 1)
+  const rate = (0.85 + Math.min(1.8, (g.dungeon - 1) * 0.09)) * (g.event === 'starve' ? 1.5 : 1)
   g.heat = Math.max(0, g.heat - rate * dt)
   if (g.heat <= 0) beginDeath(g, 'hunger')
 }
@@ -417,10 +415,7 @@ function interact(g: Game): void {
     here.treasureTaken = true
     for (const item of here.pedestals) item.taken = true
     if (def.kind === 'active') equipActive(g, def.id, def.name, def.description, def.charges ?? 3, def.use ?? '')
-    else {
-      applyUpgrade(g.stats, def)
-      g.passives.push(def.id)
-    }
+    else grantPassive(g, def)
     floater(g, pedestal.x, pedestal.y - 28, def.name, '#ffe1a3')
     g.events.push({ type: 'collect' })
     return
@@ -435,6 +430,15 @@ function interact(g: Game): void {
     g.dungeon += 1
     beginDungeon(g, true)
   }
+}
+
+function grantPassive(g: Game, def: UpgradeDef): void {
+  applyUpgrade(g.stats, def)
+  if (def.maxHeat) {
+    g.maxHeat += def.maxHeat
+    g.heat = Math.min(g.maxHeat, g.heat + def.maxHeat)
+  }
+  g.passives.push(def.id)
 }
 
 function equipActive(g: Game, id: string, name: string, description: string, charges: number, use: string): void {
@@ -456,10 +460,7 @@ function openChest(g: Game, x: number, y: number): void {
   if (UPGRADES.length && g.rng() < chance) {
     const def = UPGRADES[Math.floor(g.rng() * UPGRADES.length)]!
     if (def.kind === 'active') equipActive(g, def.id, def.name, def.description, def.charges ?? 3, def.use ?? '')
-    else {
-      applyUpgrade(g.stats, def)
-      g.passives.push(def.id)
-    }
+    else grantPassive(g, def)
     floater(g, x, y - 28, def.name, '#ffe1a3')
   } else {
     floater(g, x, y - 22, `${coins} coins`, '#f0b45a')
@@ -535,7 +536,7 @@ function stepBullets(g: Game, dt: number): void {
     if (!b.friendly) {
       if (Math.hypot(b.x - g.player.x, b.y - g.player.y) < b.r + 11) {
         b.life = 0
-        hurtHearts(g, b.hearts, 'a spike')
+        hurt(g, 12, 'a spike')
       }
       continue
     }
@@ -567,31 +568,13 @@ function stepEnemies(g: Game, dt: number): void {
     else stepWisp(g, e, dt, haste)
     if (e.kind !== 'boss') moveCircle(here, e, e.r, dt)
     else moveCircle(here, e, e.r * 0.8, dt)
-    e.trail -= dt
-    if (e.kind !== 'boss' && e.arrive >= 1 && e.trail <= 0 && Math.hypot(e.vx, e.vy) > 12) {
-      e.trail = 0.08
-      const speed = Math.hypot(e.vx, e.vy)
-      const nx = e.vx / speed
-      const ny = e.vy / speed
-      const size = e.kind === 'cinder' ? 7 : 9
-      const back = e.r * 1.8 + size + 1
-      g.particles.push({
-        x: e.x - nx * back,
-        y: e.y - ny * back,
-        vx: -nx * 8,
-        vy: -ny * 8,
-        life: 0.6,
-        max: 0.6,
-        size,
-        color: e.kind === 'cinder' ? 'rgba(90, 18, 14, 0.45)' : 'rgba(28, 24, 26, 0.55)',
-        grav: 0,
-        behind: true,
-      })
-    }
-    if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurtHearts(g, e.hearts, e.name)
+    if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch, e.name)
   }
   separateEnemies(g)
   unstick(g)
+  for (const e of g.enemies) {
+    if (!e.dead) leaveTrail(g, e)
+  }
   for (const w of g.warnings) w.life -= dt
   compact(g.warnings, (w) => w.life <= 0)
   for (const beam of g.beams) beam.life -= dt
@@ -600,7 +583,6 @@ function stepEnemies(g: Game, dt: number): void {
 
 function stepWisp(g: Game, e: Enemy, dt: number, haste: number): void {
   chase(g, e, dt, e.speed * haste)
-  e.hearts = g.event === 'strong' ? 2 : 1
 }
 
 function stepCinder(g: Game, e: Enemy, dt: number, haste: number): void {
@@ -643,7 +625,7 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number): void {
     distToSeg(g.player.x, g.player.y, e.x, e.y, e.x + Math.cos(e.aim) * reach, e.y + Math.sin(e.aim) * reach) < 8
   ) {
     e.didHit = true
-    hurtHearts(g, g.event === 'strong' ? 3 : 2, 'a red glare')
+    hurt(g, 14, 'a red glare')
   }
   if (e.timer <= 0) {
     e.mode = 0
@@ -705,7 +687,7 @@ function stepBoss(g: Game, e: Enemy, dt: number): void {
         life: SPIKE_LIFE,
         max: SPIKE_LIFE,
         damage: 0,
-        hearts: g.event === 'strong' ? 3 : 2,
+        hearts: 0,
         pierce: 1,
         r: 5,
         hit: [],
@@ -720,7 +702,6 @@ function stepBoss(g: Game, e: Enemy, dt: number): void {
       e.timer = 2.1
     }
   }
-  e.hearts = g.event === 'strong' ? 3 : 2
 }
 
 function chase(g: Game, e: Enemy, dt: number, speed: number): void {
@@ -735,10 +716,10 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
   const rank = g.dungeon
   const base =
     kind === 'cinder'
-      ? { hp: (14 + rank * 3) * strong, r: 11, speed: 58, hearts: 1, name: 'Cinder wisp' }
+      ? { hp: (14 + rank * 3) * strong, r: 11, speed: 58, touch: 11, name: 'Cinder wisp' }
       : kind === 'boss'
-        ? { hp: (120 + rank * 48) * strong, r: 36, speed: 34 + rank, hearts: 2, name: 'The Briar' }
-        : { hp: (8 + rank * 2) * strong, r: 9, speed: 72, hearts: 1, name: 'Wisp' }
+        ? { hp: (120 + rank * 48) * strong, r: 36, speed: 34 + rank, touch: 16, name: 'The Briar' }
+        : { hp: (8 + rank * 2) * strong, r: 9, speed: 72, touch: 9, name: 'Wisp' }
   return {
     id: g.nextId++,
     kind,
@@ -751,7 +732,7 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     maxHp: base.hp,
     r: base.r,
     speed: base.speed,
-    hearts: base.hearts,
+    touch: base.touch,
     flash: 0,
     arrive: 0,
     dead: false,
@@ -764,6 +745,8 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     nextEye: 99,
     spikes: kind === 'boss' ? Array.from({ length: 8 }, () => ({ cool: 0, warn: 0, ang: 0 }) satisfies SpikeSlot) : [],
     trail: 0,
+    prevX: x,
+    prevY: y,
     bossRank: rank,
   }
 }
@@ -786,6 +769,7 @@ function resolveDeaths(g: Game): void {
       g.shake = 10
       puff(g, e.x, e.y, 'rgba(255,220,180,0.9)', 16, 110, 0.45, 3)
     } else {
+      room(g).coins.push({ x: e.x, y: e.y, kind: 'spark', taken: false })
       puff(g, e.x, e.y, e.kind === 'cinder' ? 'rgba(255,80,50,0.8)' : 'rgba(40,32,34,0.9)', 6, 50, 0.35, 2)
     }
   }
@@ -804,7 +788,7 @@ function watchClear(g: Game): void {
     const chance = Math.min(0.9, 0.38 + Math.max(0, g.stats.luck) * 0.06)
     if (g.rng() < chance) {
       const roll = g.rng()
-      const kind = roll < 0.62 ? 'coin' : roll < 0.87 ? 'spark' : 'soul'
+      const kind = roll < 0.7 ? 'coin' : 'spark'
       here.coins.push({ x: g.player.x + 18, y: g.player.y, kind, taken: false })
     }
   }
@@ -845,19 +829,40 @@ function opposite(dir: Dir): Dir {
   return 'e'
 }
 
-function hurtHearts(g: Game, halves: number, cause: string): void {
-  if (g.state !== 'playing' || g.iframes > 0 || halves <= 0) return
-  let left = halves
-  const fromSoul = Math.min(g.stats.soul, left)
-  g.stats.soul -= fromSoul
-  left -= fromSoul
-  g.stats.red = Math.max(0, g.stats.red - left)
-  g.iframes = 0.55
+function hurt(g: Game, amount: number, cause: string): void {
+  if (g.state !== 'playing' || g.iframes > 0 || amount <= 0) return
+  const spent = amount * (g.event === 'strong' ? 1.25 : 1)
+  g.heat = Math.max(0, g.heat - spent)
+  g.iframes = 0.4
   g.hurtFlash = 0.28
   g.shake = Math.max(g.shake, 5)
   g.lastBlow = cause
   g.events.push({ type: 'hurt' })
-  if (g.stats.red <= 0 && g.stats.soul <= 0) beginDeath(g, cause === 'hunger' || cause === 'a pit' ? cause : cause)
+  if (g.heat <= 0) beginDeath(g, cause)
+}
+
+function leaveTrail(g: Game, e: Enemy): void {
+  const dx = e.x - e.prevX
+  const dy = e.y - e.prevY
+  e.prevX = e.x
+  e.prevY = e.y
+  if (e.kind === 'boss' || e.arrive < 1) return
+  const moved = Math.hypot(dx, dy)
+  if (moved < 0.8) return
+  const size = e.kind === 'cinder' ? 6.5 : 8
+  const back = e.r + size * 0.55
+  g.particles.push({
+    x: e.x - (dx / moved) * back,
+    y: e.y - (dy / moved) * back,
+    vx: 0,
+    vy: 0,
+    life: 0.22,
+    max: 0.22,
+    size,
+    color: e.kind === 'cinder' ? 'rgba(90, 18, 14, 0.45)' : 'rgba(28, 24, 26, 0.55)',
+    grav: 0,
+    behind: true,
+  })
 }
 
 function beginDeath(g: Game, cause: string): void {
