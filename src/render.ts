@@ -31,7 +31,7 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   const sx = (Math.random() - 0.5) * shake
   const sy = (Math.random() - 0.5) * shake
   const menu = g.state === 'menu' || g.state === 'steer'
-  const cam = menu ? { x: g.player.x, y: g.player.y - h * 0.28, zoom: 1 } : camera(g, w, h)
+  const cam = menu ? { x: g.player.x, y: g.player.y - h * 0.42, zoom: 1 } : camera(g, w, h)
 
   ctx.save()
   ctx.translate(w / 2 + sx, h / 2 + sy)

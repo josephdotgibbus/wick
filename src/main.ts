@@ -15,16 +15,7 @@ import {
   toggleLoadout,
   togglePause,
 } from './sim.ts'
-import {
-  allowedBlessing,
-  commitRun,
-  loadSave,
-  setBlessing,
-  setControl,
-  setMuted,
-  todayBest,
-  type Save,
-} from './storage.ts'
+import { commitRun, loadSave, setControl, setMuted, todayBest, type Save } from './storage.ts'
 import type { FrameInput, Game, Mode } from './types.ts'
 import { mount, showError, sync, type Session } from './ui.ts'
 
@@ -43,7 +34,7 @@ const sound = new Sound()
 const save = loadSave()
 sound.setMuted(save.muted)
 const game = createGame()
-const session: Session = { fresh: [], record: false, dailyRecord: false }
+const session: Session = { record: false, dailyRecord: false }
 let committed = -1
 
 const keys = new Set<string>()
@@ -125,7 +116,6 @@ mount({
   fresh: () => begin('endless', randomSeed()),
   menu: () => {
     enterMenu(game)
-    session.fresh = []
     session.record = false
     session.dailyRecord = false
   },
@@ -138,7 +128,6 @@ mount({
     sound.setMuted(save.muted)
     sound.unlock()
   },
-  blessing: (id) => setBlessing(save, id),
   burst: () => {
     if (game.state === 'playing') queueBurst()
   },
@@ -164,16 +153,13 @@ function begin(mode: Mode, seed: number): void {
   burstQueued = false
   useQueued = false
   interactQueued = false
-  const blessing = allowedBlessing(save)
   const bestAtStart = mode === 'daily' ? todayBest(save) : save.bestRound
-  session.fresh = []
   session.record = false
   session.dailyRecord = false
   game.control = save.control
   queueRun(game, {
     mode,
     seed,
-    blessing,
     bestAtStart,
     tutor: save.runs < 2,
   })
@@ -366,7 +352,6 @@ function settle(g: Game, current: Save): void {
     seedLabel: g.seedLabel,
     mode: g.mode,
   })
-  session.fresh = result.fresh
   session.record = result.record
   session.dailyRecord = result.dailyRecord
 }

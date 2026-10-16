@@ -1,4 +1,4 @@
-import { applyBlessing, applyUpgrade, baseStats, eulogyFor, EVENT_COPY, heatBonus, lightOf } from './content.ts'
+import { applyUpgrade, baseStats, eulogyFor, EVENT_COPY, lightOf } from './content.ts'
 import { buildFloor, entryOf } from './dungeon.ts'
 import { formatSeed, mulberry32 } from './rng.ts'
 import type {
@@ -22,7 +22,6 @@ const TAU = Math.PI * 2
 export interface RunOptions {
   mode: Mode
   seed: number
-  blessing: string
   bestAtStart: number
   tutor: boolean
 }
@@ -50,7 +49,6 @@ export function createGame(): Game {
     stats: baseStats(),
     passives: [],
     active: null,
-    blessingId: 'bare',
     control: 'mouse',
     pending: null,
     loadoutOpen: false,
@@ -119,7 +117,6 @@ export function queueRun(g: Game, opts: RunOptions): void {
   g.pending = {
     mode: opts.mode,
     seed: opts.seed,
-    blessing: opts.blessing,
     bestRound: opts.bestAtStart,
     tutor: opts.tutor,
   }
@@ -135,7 +132,6 @@ export function confirmControl(g: Game, control: ControlMode): void {
   startRun(g, {
     mode: pending.mode,
     seed: pending.seed,
-    blessing: pending.blessing,
     bestAtStart: pending.bestRound,
     tutor: pending.tutor,
   })
@@ -154,12 +150,10 @@ export function startRun(g: Game, opts: RunOptions): void {
   g.seed = opts.seed >>> 0
   g.seedLabel = formatSeed(g.seed)
   g.rng = mulberry32((g.seed || 1) ^ 0x51ed)
-  g.blessingId = opts.blessing
   g.bestAtStart = opts.bestAtStart
   g.tutor = opts.tutor
   g.stats = baseStats()
-  applyBlessing(g.stats, opts.blessing)
-  g.maxHeat = 50 + heatBonus(opts.blessing)
+  g.maxHeat = 50
   g.heat = g.maxHeat
   g.state = 'playing'
   g.dungeon = 1

@@ -1,4 +1,4 @@
-import { BLESSINGS, blessingById, EVENT_COPY, pedestalCopy, statLines, tierLabel } from './content.ts'
+import { EVENT_COPY, pedestalCopy, statLines, tierLabel } from './content.ts'
 import { formatTime } from './format.ts'
 import { dailyKey, dailySeed, formatSeed } from './rng.ts'
 import type { Save } from './storage.ts'
@@ -8,7 +8,6 @@ import { drawUpgradeIcon } from './render.ts'
 import { upgradeById } from './upgrades.ts'
 
 export interface Session {
-  fresh: string[]
   record: boolean
   dailyRecord: boolean
 }
@@ -23,7 +22,6 @@ export interface Actions {
   resume: () => void
   giveUp: () => void
   toggleMute: () => void
-  blessing: (id: string) => void
   burst: () => void
   use: () => void
   interact: () => void
@@ -31,10 +29,7 @@ export interface Actions {
   loadout: () => void
 }
 
-let bound: Actions | null = null
-
 export function mount(actions: Actions): void {
-  bound = actions
   byId('play').addEventListener('click', actions.play)
   byId('daily').addEventListener('click', actions.daily)
   byId('again').addEventListener('click', actions.again)
@@ -75,7 +70,6 @@ export function mount(actions: Actions): void {
   deadSeed.addEventListener('focus', () => deadSeed.select())
 }
 
-let blessSig = ''
 let histSig = ''
 let deadSig = ''
 let shellState = ''
@@ -120,28 +114,6 @@ function paintMenu(g: Game, save: Save, session: Session): void {
   const day = dailyKey()
   const best = todayBest(save, day)
   byId('daily-note').textContent = best > 0 ? `Today’s best is dungeon ${best}.` : `Today’s seed is ${formatSeed(dailySeed())}.`
-  const marks = { round: save.bestRound, time: save.bestTime, bosses: save.bosses }
-  const sig = `${save.unlocks.join()}|${save.blessing}|${save.bestRound}`
-  if (sig !== blessSig) {
-    blessSig = sig
-    const box = byId('blessings')
-    box.replaceChildren()
-    for (const blessing of BLESSINGS) {
-      const open = blessing.id === 'bare' || save.unlocks.includes(blessing.id)
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'bless'
-      button.disabled = !open
-      button.setAttribute('aria-pressed', save.blessing === blessing.id ? 'true' : 'false')
-      const name = document.createElement('strong')
-      name.textContent = open ? blessing.name : 'Locked'
-      const desc = document.createElement('span')
-      desc.textContent = open ? blessing.desc : blessing.need
-      button.append(name, desc)
-      button.addEventListener('click', () => bound?.blessing(blessing.id))
-      box.append(button)
-    }
-  }
   const records = byId('records')
   const empty = byId('empty-records')
   if (save.runs === 0) {
@@ -169,7 +141,6 @@ function paintMenu(g: Game, save: Save, session: Session): void {
   }
   void g
   void session
-  void marks
 }
 
 function paintHud(g: Game): void {
@@ -279,10 +250,6 @@ function paintDead(g: Game, save: Save, session: Session): void {
   for (const line of statLines(g.stats)) addRecord(stats, line.label, line.value)
   addRecord(stats, 'Heat', `${Math.ceil(g.heat)} / ${Math.round(g.maxHeat)}`)
   byId('dead-build').textContent = pauseLine(g)
-  const unlocks = byId('dead-unlocks')
-  unlocks.textContent = session.fresh.length
-    ? `Unlocked ${session.fresh.map((id) => blessingById(id)?.name ?? id).join(', ')}.`
-    : ''
   byId<HTMLInputElement>('dead-seed').value = g.seedLabel
 }
 
@@ -342,10 +309,9 @@ function paintActive(g: Game): void {
 }
 
 function pauseLine(g: Game): string {
-  const blessing = blessingById(g.blessingId)
   const held = g.passives.length ? `${g.passives.length} passive` : 'no passives'
   const active = g.active ? g.active.name : 'no active item'
-  return `${blessing?.name ?? 'None'} blessing. ${held}. ${active}. ${g.coins} coins.`
+  return `${held}. ${active}. ${g.coins} coins.`
 }
 
 function addRecord(dl: HTMLElement, label: string, value: string): void {

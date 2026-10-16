@@ -19,7 +19,7 @@ The flame keeps the Binding of Isaac stat line:
 - **Magnet** starts at 28 pixels. A spark inside that distance drags toward you. Upgrades can add to it.
 - **Heat** starts at 50. That is your life. A wisp touch spends 9, a red enemy 11, the Briar 16, a beam 14, and a spike 12. The wick also burns down on its own, a little faster than it used to.
 
-A blessing can raise speed, damage, luck, or your max heat before the run. Reaching later dungeons unlocks them. Kills leave a small spark. Picking one up restores 7 heat.
+Kills leave a small spark. Picking one up restores 7 heat.
 
 ## Play
 

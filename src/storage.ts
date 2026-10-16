@@ -1,4 +1,3 @@
-import { BLESSINGS, type BestMarks } from './content.ts'
 import type { ControlMode } from './types.ts'
 import { dailyKey } from './rng.ts'
 
@@ -19,8 +18,6 @@ export interface Save {
   bosses: number
   runs: number
   lifetime: number
-  unlocks: string[]
-  blessing: string
   muted: boolean
   control: ControlMode
   dailyDay: string
@@ -37,7 +34,6 @@ export interface FinishedRun {
 }
 
 export interface CommitResult {
-  fresh: string[]
   record: boolean
   dailyRecord: boolean
 }
@@ -49,8 +45,6 @@ function empty(): Save {
     bosses: 0,
     runs: 0,
     lifetime: 0,
-    unlocks: [],
-    blessing: 'bare',
     muted: false,
     control: 'mouse',
     dailyDay: '',
@@ -61,10 +55,6 @@ function empty(): Save {
 
 function num(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
-}
-
-function knownBlessing(id: string): boolean {
-  return BLESSINGS.some((b) => b.id === id)
 }
 
 export function loadSave(): Save {
@@ -91,10 +81,6 @@ export function loadSave(): Save {
     save.control = parsed.control === 'keys' ? 'keys' : 'mouse'
     save.dailyDay = typeof parsed.dailyDay === 'string' ? parsed.dailyDay : ''
     save.dailyRound = num(parsed.dailyRound)
-    if (Array.isArray(parsed.unlocks)) {
-      save.unlocks = parsed.unlocks.filter((id): id is string => typeof id === 'string' && knownBlessing(id) && id !== 'bare')
-    }
-    if (typeof parsed.blessing === 'string' && knownBlessing(parsed.blessing)) save.blessing = parsed.blessing
     if (Array.isArray(parsed.history)) {
       save.history = parsed.history
         .filter((h): h is HistoryEntry => !!h && typeof h === 'object')
@@ -110,7 +96,6 @@ export function loadSave(): Save {
   } catch {
     return empty()
   }
-  if (save.blessing !== 'bare' && !save.unlocks.includes(save.blessing)) save.blessing = 'bare'
   return save
 }
 
@@ -120,24 +105,6 @@ export function persist(save: Save): void {
   } catch {
     // Private mode and full disks still let the current session play.
   }
-}
-
-export function marksOf(save: Save): BestMarks {
-  return { round: save.bestRound, time: save.bestTime, bosses: save.bosses }
-}
-
-export function allowedBlessing(save: Save): string {
-  if (save.blessing !== 'bare' && save.unlocks.includes(save.blessing) && knownBlessing(save.blessing)) {
-    return save.blessing
-  }
-  return 'bare'
-}
-
-export function setBlessing(save: Save, id: string): void {
-  if (id !== 'bare' && !save.unlocks.includes(id)) return
-  if (!knownBlessing(id)) return
-  save.blessing = id
-  persist(save)
 }
 
 export function setMuted(save: Save, muted: boolean): void {
@@ -177,17 +144,6 @@ export function commitRun(save: Save, run: FinishedRun): CommitResult {
     mode: run.mode,
   })
   save.history = save.history.slice(0, 6)
-
-  const fresh: string[] = []
-  const marks = marksOf(save)
-  for (const blessing of BLESSINGS) {
-    if (blessing.id === 'bare') continue
-    if (save.unlocks.includes(blessing.id)) continue
-    if (blessing.met(marks)) {
-      save.unlocks.push(blessing.id)
-      fresh.push(blessing.id)
-    }
-  }
   persist(save)
-  return { fresh, record, dailyRecord }
+  return { record, dailyRecord }
 }

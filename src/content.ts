@@ -16,16 +16,6 @@ export function baseStats(): Stats {
   }
 }
 
-export function heatBonus(id: string): number {
-  return id === 'hearth' ? 16 : 0
-}
-
-export function applyBlessing(stats: Stats, id: string): void {
-  if (id === 'step') stats.speed += 0.2
-  if (id === 'kindling') stats.damage += 1
-  if (id === 'slowburn') stats.luck += 1
-}
-
 export function applyUpgrade(stats: Stats, def: UpgradeDef): void {
   if (def.kind !== 'passive') return
   if (def.damage) stats.damage += def.damage
@@ -85,56 +75,6 @@ export const KIND_COLOR: Record<Kind, string> = {
   wisp: '#c9b8ae',
   cinder: '#ff4d3a',
   boss: '#f2e6dc',
-}
-
-export interface BestMarks {
-  round: number
-  time: number
-  bosses: number
-}
-
-export interface Blessing {
-  id: string
-  name: string
-  desc: string
-  need: string
-  met: (marks: BestMarks) => boolean
-}
-
-export const BLESSINGS: Blessing[] = [
-  { id: 'bare', name: 'None', desc: 'Start with a full wick and damage 3.50.', need: '', met: () => true },
-  {
-    id: 'hearth',
-    name: 'Hearth',
-    desc: 'Start with 16 more heat.',
-    need: 'Reach dungeon 2',
-    met: (m) => m.round >= 2,
-  },
-  {
-    id: 'step',
-    name: 'Speed',
-    desc: 'Start at speed 1.05 instead of 0.85.',
-    need: 'Reach dungeon 3',
-    met: (m) => m.round >= 3,
-  },
-  {
-    id: 'kindling',
-    name: 'Damage',
-    desc: 'Start at damage 4.50 instead of 3.50.',
-    need: 'Reach dungeon 4',
-    met: (m) => m.round >= 4,
-  },
-  {
-    id: 'slowburn',
-    name: 'Luck',
-    desc: 'Start at luck 1.00 instead of 0. Room drops and chests get a little kinder.',
-    need: 'Reach dungeon 5, or survive 3:00',
-    met: (m) => m.round >= 5 || m.time >= 180,
-  },
-]
-
-export function blessingById(id: string): Blessing | undefined {
-  return BLESSINGS.find((b) => b.id === id)
 }
 
 export function eulogyFor(cause: string): string {

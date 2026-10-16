@@ -24,7 +24,7 @@ function goal(g: Game): { x: number; y: number } | null {
 
 function run(seed: number): { dungeon: number; time: number; state: string; kills: number; heat: number } {
   const g = createGame()
-  startRun(g, { mode: 'endless', seed, blessing: 'bare', bestAtStart: 0, tutor: false })
+  startRun(g, { mode: 'endless', seed, bestAtStart: 0, tutor: false })
   let steps = 0
   let stuck = 0
   let wander = 0

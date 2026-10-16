@@ -259,7 +259,6 @@ export interface FrameInput {
 export interface PendingRun {
   mode: Mode
   seed: number
-  blessing: string
   bestRound: number
   tutor: boolean
 }
@@ -287,7 +286,6 @@ export interface Game {
   stats: Stats
   passives: string[]
   active: Active | null
-  blessingId: string
   control: ControlMode
   pending: PendingRun | null
   loadoutOpen: boolean

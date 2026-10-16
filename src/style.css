@@ -500,54 +500,6 @@ input[type="text"], input:not([type]) {
   padding: 12px 16px;
 }
 
-fieldset {
-  border: 0;
-  margin: 22px 0 8px;
-  padding: 0;
-}
-
-.blessings {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.bless {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: rgba(16, 12, 10, 0.35);
-  cursor: pointer;
-}
-
-.bless input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.bless:has(input:checked) {
-  border-color: var(--ember);
-  background: rgba(255, 106, 44, 0.08);
-}
-
-.bless.is-locked { opacity: 0.55; cursor: not-allowed; }
-
-.bless-name {
-  font-family: var(--serif);
-  font-size: 18px;
-  letter-spacing: -0.03em;
-  text-transform: none;
-  color: var(--cream);
-}
-
-.bless-desc { color: var(--dim); font-size: 13px; line-height: 1.35; }
-
 .records, .stats {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -669,11 +621,9 @@ fieldset {
   color: var(--dim);
 }
 
-.build, .unlocks, .record, .eulogy { line-height: 1.4; }
+.build, .record, .eulogy { line-height: 1.4; }
 
 .build { color: var(--dim); }
-
-.unlocks { color: var(--gold); }
 
 .big-score {
   margin: 0;
@@ -837,7 +787,6 @@ fieldset {
 @media (max-width: 800px) {
   .cards { grid-template-columns: 1fr; }
   .card { min-height: 0; }
-  .blessings { grid-template-columns: 1fr; }
   .top { grid-template-columns: 1fr auto; }
   .heatwrap { grid-column: 1 / -1; max-width: none; }
   #hud.quiet .top { padding-right: 0; }
