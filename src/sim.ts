@@ -15,6 +15,7 @@ import { formatSeed, mulberry32 } from './rng.ts'
 import type {
   Chunk,
   ControlMode,
+  Bullet,
   Enemy,
   FrameInput,
   Game,
@@ -70,6 +71,8 @@ export function createGame(): Game {
     fireCd: 0.2,
     shotN: 0,
     coalSpent: false,
+    shields: 0,
+    revenge: false,
     orbitAng: 0,
     trailCd: 0,
     brambleCd: 0,
@@ -314,6 +317,9 @@ function beginRound(g: Game): void {
   if (g.round > 1) g.hint = ''
   scatterTerrain(g)
   g.coalSpent = false
+  g.shields = g.mods.shields
+  g.revenge = false
+  if (g.mods.roundHeat > 0) g.heat = Math.min(g.mods.maxHeat, g.heat + g.mods.roundHeat)
   g.gathering = false
   g.incoming = []
 
@@ -322,7 +328,10 @@ function beginRound(g: Game): void {
     g.events.push({ type: 'boss' })
     return
   }
-  const count = Math.min(42, 7 + g.round * 3 + g.mods.extraSpawns + (g.event === 'surge' ? 4 : 0))
+  const count = Math.max(
+    4,
+    Math.min(42, 7 + g.round * 3 + g.mods.extraSpawns + (g.event === 'surge' ? 4 : 0) - g.mods.spawnCut),
+  )
   const gap = Math.max(0.62, 1.15 - g.round * 0.035)
   for (let i = 0; i < count; i++) {
     const cinder = g.round >= 4 && g.rng() < Math.min(0.34, 0.12 + (g.round - 3) * 0.025)
@@ -388,7 +397,8 @@ function watchClear(g: Game, dt: number): void {
 }
 
 function stepPlayer(g: Game, input: FrameInput, dt: number): void {
-  const speed = g.mods.speed
+  let speed = g.mods.speed
+  if (g.mods.panic > 1 && g.mods.maxHeat > 0 && g.heat / g.mods.maxHeat < 0.35) speed *= g.mods.panic
   if (input.burst && g.burstCd <= 0 && g.heat > g.mods.burstCost + 1) {
     const ang = Math.hypot(input.ax, input.ay) > 0.2 ? Math.atan2(input.ay, input.ax) : g.facing
     g.burstT = 0.12
@@ -425,15 +435,29 @@ function stepPlayer(g: Game, input: FrameInput, dt: number): void {
   g.player.x += g.player.vx * dt
   g.player.y += g.player.vy * dt
   separateCircle(g.player, 12, obstaclesNear(g, g.player.x, g.player.y))
+  if (g.mods.emberDps > 0 && Math.hypot(g.player.vx, g.player.vy) > 20) {
+    g.trailCd -= dt
+    if (g.trailCd <= 0) {
+      g.trailCd = 0.16
+      g.patches.push({ x: g.player.x, y: g.player.y, r: 18, life: 0.45, max: 0.45, dps: g.mods.emberDps })
+    }
+  }
 }
 
 function strikeBurst(g: Game): void {
-  const x2 = g.player.x + Math.cos(g.burstAng) * 86
-  const y2 = g.player.y + Math.sin(g.burstAng) * 86
+  const reach = g.mods.burstRange
+  const x2 = g.player.x + Math.cos(g.burstAng) * reach
+  const y2 = g.player.y + Math.sin(g.burstAng) * reach
   for (const e of g.enemies) {
     if (e.dead) continue
     if (distToSeg(e.x, e.y, g.player.x, g.player.y, x2, y2) > e.r + 18) continue
-    damageEnemy(e, 18)
+    damageEnemy(e, g.mods.burstDmg)
+  }
+  if (g.mods.burstNova > 0) {
+    const n = g.mods.burstNova
+    for (let i = 0; i < n; i++) {
+      fireSpark(g, g.burstAng + (i / n) * TAU, g.mods.shotDamage * g.mods.burstNovaFrac, false, true, 0.7)
+    }
   }
 }
 
@@ -488,13 +512,14 @@ function stepSparks(g: Game, dt: number): void {
 function takeSpark(g: Game, s: Spark): void {
   if (s.taken) return
   s.taken = true
-  g.heat = Math.min(g.mods.maxHeat, g.heat + s.value)
+  g.heat = Math.min(g.mods.maxHeat, g.heat + s.value + g.mods.pickupBonus)
   g.events.push({ type: 'collect' })
   puff(g, s.x, s.y, 'rgba(255,190,80,0.9)', 5, 40, 0.3, 1.6)
   if (g.mods.collectRing > 0) scorch(g, s.x, s.y, g.mods.collectRing, 8 + s.value)
 }
 
 function starve(g: Game, dt: number): void {
+  if (g.mods.regen > 0 && g.heat > 0) g.heat = Math.min(g.mods.maxHeat, g.heat + g.mods.regen * dt)
   const rate = (0.72 + Math.min(2.4, g.round * 0.055)) * g.mods.decayMult
   g.heat = Math.max(0, g.heat - rate * dt)
   if (g.heat <= 0) trySnuff(g, 'hunger')
@@ -511,7 +536,9 @@ function stepShots(g: Game, dt: number): void {
   g.facing = ang
   const damage = g.mods.shotDamage
   const branded = g.mods.brand
-  fireSpark(g, ang, damage, branded)
+  fireSpark(g, ang, damage, branded, false, 1, true)
+  if (g.mods.doubleEvery > 0 && g.shotN % g.mods.doubleEvery === 0) fireSpark(g, ang + 0.08, damage, branded)
+  if (g.mods.wild > 0 && g.rng() < g.mods.wild) fireSpark(g, ang + (g.rng() - 0.5) * 0.5, damage, branded)
   if (g.mods.back) {
     fireSpark(g, ang + Math.PI, damage * g.mods.backFrac, g.mods.brandForks)
     if (g.mods.backSplits) {
@@ -523,6 +550,10 @@ function stepShots(g: Game, dt: number): void {
     const side = i % 2 === 0 ? 1 : -1
     fireSpark(g, ang + side * (0.38 + i * 0.08), damage * g.mods.forkFrac, g.mods.brandForks)
   }
+  for (let i = 0; i < g.mods.fan; i++) {
+    const side = i % 2 === 0 ? 1 : -1
+    fireSpark(g, ang + side * (0.62 + i * 0.1), damage * g.mods.fanFrac, false)
+  }
   if (g.mods.novaEvery > 0 && g.shotN % g.mods.novaEvery === 0) {
     for (let i = 0; i < 8; i++) {
       fireSpark(g, ang + (i / 8) * TAU, damage * g.mods.novaFrac, g.mods.brandForks, false, 0.85)
@@ -530,9 +561,18 @@ function stepShots(g: Game, dt: number): void {
   }
 }
 
-function fireSpark(g: Game, ang: number, damage: number, brand: boolean, child = false, lifeScale = 1): void {
+function fireSpark(
+  g: Game,
+  ang: number,
+  damage: number,
+  brand: boolean,
+  child = false,
+  lifeScale = 1,
+  useRevenge = false,
+): void {
   const speed = g.mods.shotSpeed
   const life = g.mods.shotLife * lifeScale
+  const dealt = outgoingDamage(g, damage, useRevenge)
   g.bullets.push({
     x: g.player.x + Math.cos(ang) * 14,
     y: g.player.y + Math.sin(ang) * 14,
@@ -540,9 +580,9 @@ function fireSpark(g: Game, ang: number, damage: number, brand: boolean, child =
     vy: Math.sin(ang) * speed,
     life,
     max: life,
-    damage,
+    damage: dealt,
     pierce: g.mods.pierce + 1,
-    r: shotRadius(damage),
+    r: shotRadius(dealt, g.mods.shotScale),
     hit: [],
     friendly: true,
     brand,
@@ -550,8 +590,24 @@ function fireSpark(g: Game, ang: number, damage: number, brand: boolean, child =
   })
 }
 
-function shotRadius(damage: number): number {
-  return Math.min(9.5, 2.5 + Math.sqrt(Math.max(1, damage)) * 0.72)
+function outgoingDamage(g: Game, base: number, useRevenge: boolean): number {
+  let damage = base
+  const heat = g.mods.maxHeat <= 0 ? 1 : g.heat / g.mods.maxHeat
+  if (g.mods.lowHeatDmg > 1 && heat < 0.35) damage *= g.mods.lowHeatDmg
+  if (g.mods.highHeatDmg > 1 && heat > 0.75) damage *= g.mods.highHeatDmg
+  const moving = Math.hypot(g.player.vx, g.player.vy) > 20
+  if (moving && g.mods.movingDmg > 1) damage *= g.mods.movingDmg
+  if (!moving && g.mods.stillDmg > 1) damage *= g.mods.stillDmg
+  if (useRevenge && g.revenge && g.mods.revenge > 1) {
+    damage *= g.mods.revenge
+    g.revenge = false
+  }
+  if (g.mods.critChance > 0 && g.mods.critMult > 1 && g.rng() < g.mods.critChance) damage *= g.mods.critMult
+  return damage
+}
+
+function shotRadius(damage: number, scale: number): number {
+  return Math.min(14, (2.5 + Math.sqrt(Math.max(1, damage)) * 0.72) * scale)
 }
 
 function stepBullets(g: Game, dt: number): void {
@@ -573,8 +629,13 @@ function stepBullets(g: Game, dt: number): void {
       if (Math.hypot(b.x - e.x, b.y - e.y) > b.r + e.r) continue
       b.hit.push(e.id)
       b.pierce -= 1
-      damageEnemy(e, b.damage)
-      if (b.brand) g.patches.push({ x: e.x, y: e.y, r: 28, life: 0.8, max: 0.8, dps: b.damage * 0.5 })
+      const dealt = hitDamage(g, e, b.damage)
+      damageEnemy(e, dealt)
+      if (b.brand && g.mods.brandFrac > 0) {
+        const life = g.mods.brandTime > 0 ? g.mods.brandTime : 0.8
+        g.patches.push({ x: e.x, y: e.y, r: 28, life, max: life, dps: dealt * g.mods.brandFrac })
+      }
+      if (!b.child) onShotHit(g, e, b, dealt)
       puff(g, b.x, b.y, 'rgba(255,210,140,0.85)', 3, 50, 0.22, 1.4)
       if (b.pierce <= 0) {
         b.life = 0
@@ -665,16 +726,23 @@ function stepPatches(g: Game, dt: number): void {
 function stepEnemies(g: Game, dt: number): void {
   const strong = g.event === 'strong' ? 1.22 : 1
   const haste = g.event === 'haste' ? 1.22 : 1
-  const light = g.mods.haloDps > 0 || g.mods.haloSlow < 1 ? lightOf(g.heat, g.mods.maxHeat, g.mods.light) : 0
+  const haloOn = g.mods.haloDps > 0 || g.mods.haloSlow < 1
+  const light = haloOn || g.mods.siphon > 0 ? lightOf(g.heat, g.mods.maxHeat, g.mods.light) : 0
+  let inLight = 0
   for (const e of g.enemies) {
     if (e.dead) continue
     e.flash = Math.max(0, e.flash - dt)
     if (e.arrive < 1) e.arrive = Math.min(1, e.arrive + dt / 0.5)
     let slow = 1
-    if (light > 0 && Math.hypot(e.x - g.player.x, e.y - g.player.y) < light) {
-      slow = g.mods.haloSlow
-      if (g.mods.haloDps > 0) damageEnemy(e, g.mods.haloDps * dt)
+    const dist = Math.hypot(e.x - g.player.x, e.y - g.player.y)
+    if (light > 0 && dist < light) {
+      inLight += 1
+      if (haloOn) {
+        slow = g.mods.haloSlow
+        if (g.mods.haloDps > 0) damageEnemy(e, g.mods.haloDps * dt)
+      }
     }
+    if (g.mods.auraDps > 0 && dist < g.mods.auraR + e.r) damageEnemy(e, g.mods.auraDps * dt)
     if (e.dead) continue
     if (e.kind === 'boss') stepBoss(g, e, dt, strong, slow)
     else if (e.kind === 'cinder') stepCinder(g, e, dt, haste * slow, strong)
@@ -703,7 +771,10 @@ function stepEnemies(g: Game, dt: number): void {
         })
       }
     }
-    if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch * strong, e.name)
+    if (dist < e.r + 12) hurt(g, e.touch * strong, e.name)
+  }
+  if (inLight > 0 && g.mods.siphon > 0 && g.heat > 0) {
+    g.heat = Math.min(g.mods.maxHeat, g.heat + inLight * g.mods.siphon * dt)
   }
   separateEnemies(g)
   for (const w of g.warnings) w.life -= dt
@@ -719,6 +790,7 @@ function stepWisp(g: Game, e: Enemy, dt: number, haste: number, strong: number):
 
 function stepCinder(g: Game, e: Enemy, dt: number, haste: number, strong: number): void {
   e.timer -= dt
+  const reach = 360 * g.mods.laserMult
   if (e.mode === 0) {
     chase(g, e, dt, e.speed * haste * 0.92)
     if (e.timer <= 0 && Math.hypot(e.x - g.player.x, e.y - g.player.y) < 420) {
@@ -726,7 +798,7 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number, strong: number
       e.timer = 0.7
       e.aim = Math.atan2(g.player.y - e.y, g.player.x - e.x)
       e.didHit = false
-      g.warnings.push({ x: e.x, y: e.y, ang: e.aim, len: 360, life: 0.7, max: 0.7, thin: true })
+      g.warnings.push({ x: e.x, y: e.y, ang: e.aim, len: reach, life: 0.7, max: 0.7, thin: true })
     }
     return
   }
@@ -741,7 +813,7 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number, strong: number
       x: e.x,
       y: e.y,
       ang: e.aim,
-      len: 360,
+      len: reach,
       width: 3,
       life: 0.18,
       max: 0.18,
@@ -751,7 +823,6 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number, strong: number
   }
   e.vx = 0
   e.vy = 0
-  const reach = 360
   if (
     !e.didHit &&
     distToSeg(g.player.x, g.player.y, e.x, e.y, e.x + Math.cos(e.aim) * reach, e.y + Math.sin(e.aim) * reach) < 8
@@ -944,8 +1015,8 @@ function spawnBoss(g: Game): void {
   e.bossRank = rank
   e.name = 'The Briar'
   e.r = 42 + Math.min(10, rank * 2)
-  e.hp = e.maxHp = 15 * (260 + rank * 90 + (g.event === 'strong' ? 40 : 0))
-  e.speed = 46 + rank * 4
+  e.hp = e.maxHp = 15 * (260 + rank * 90 + (g.event === 'strong' ? 40 : 0)) * g.mods.enemyHp
+  e.speed = (46 + rank * 4) * g.mods.enemySpeed
   e.aim = g.rng() * TAU
   e.mode = 0
   e.timer = 2.1
@@ -971,10 +1042,10 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     y,
     vx: 0,
     vy: 0,
-    hp: base.hp * strong,
-    maxHp: base.hp * strong,
+    hp: base.hp * strong * g.mods.enemyHp,
+    maxHp: base.hp * strong * g.mods.enemyHp,
     r: base.r,
-    speed: base.speed,
+    speed: base.speed * g.mods.enemySpeed,
     touch: base.touch,
     flash: 0,
     arrive: 0,
@@ -991,6 +1062,76 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     spikes: [],
     trail: 0,
     bossRank: 1,
+  }
+}
+
+function hitDamage(g: Game, e: Enemy, raw: number): number {
+  let damage = raw
+  if (e.kind === 'wisp') damage *= g.mods.wispMult
+  else if (e.kind === 'cinder') damage *= g.mods.cinderMult
+  else damage *= g.mods.bossMult
+  const dist = Math.hypot(e.x - g.player.x, e.y - g.player.y)
+  if (dist < 140) damage *= g.mods.closeMult
+  else if (dist > 280) damage *= g.mods.farMult
+  if (g.mods.executeFrac > 0 && e.maxHp > 0 && e.hp / e.maxHp <= g.mods.executeFrac) damage *= g.mods.executeMult
+  return damage
+}
+
+function onShotHit(g: Game, e: Enemy, b: Bullet, dealt: number): void {
+  if (g.mods.venomDps > 0) {
+    const life = g.mods.venomTime
+    g.patches.push({ x: e.x, y: e.y, r: 16, life, max: life, dps: g.mods.venomDps })
+  }
+  if (g.mods.knock > 0 && e.kind !== 'boss') {
+    const ang = Math.atan2(e.y - g.player.y, e.x - g.player.x)
+    e.x += Math.cos(ang) * g.mods.knock
+    e.y += Math.sin(ang) * g.mods.knock
+  }
+  if (g.mods.splash > 0) {
+    for (const other of g.enemies) {
+      if (other.dead || other.id === e.id) continue
+      if (Math.hypot(other.x - e.x, other.y - e.y) < g.mods.splashR + other.r) damageEnemy(other, dealt * g.mods.splash)
+    }
+  }
+  if (g.mods.chain > 0) {
+    let from = e
+    const used = new Set<number>([e.id])
+    for (let hop = 0; hop < g.mods.chain; hop++) {
+      let next: Enemy | null = null
+      let best = g.mods.chainR
+      for (const other of g.enemies) {
+        if (other.dead || used.has(other.id)) continue
+        const dist = Math.hypot(other.x - from.x, other.y - from.y)
+        if (dist < best) {
+          best = dist
+          next = other
+        }
+      }
+      if (!next) break
+      used.add(next.id)
+      damageEnemy(next, dealt * g.mods.chainFrac)
+      from = next
+    }
+  }
+  if (g.mods.ricochet > 0 && g.rng() < g.mods.ricochet) {
+    const ang = g.rng() * TAU
+    const life = 0.28
+    const speed = g.mods.shotSpeed * 0.85
+    g.bullets.push({
+      x: e.x,
+      y: e.y,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      life,
+      max: life,
+      damage: dealt * 0.5,
+      pierce: 1,
+      r: Math.max(2.2, b.r * 0.6),
+      hit: [e.id],
+      friendly: true,
+      brand: false,
+      child: true,
+    })
   }
 }
 
@@ -1016,15 +1157,33 @@ function resolveDeaths(g: Game): void {
       g.shake = 10
       puff(g, e.x, e.y, 'rgba(255,220,180,0.9)', 18, 120, 0.5, 3)
     } else {
-      g.sparks.push({ x: e.x, y: e.y, value: 5.5, life: 11, taken: false })
+      g.sparks.push({ x: e.x, y: e.y, value: g.mods.killSpark, life: g.mods.sparkLife, taken: false })
+      if (g.mods.salvage > 0 && g.rng() < g.mods.salvage) {
+        g.sparks.push({ x: e.x + 10, y: e.y - 8, value: g.mods.salvageValue, life: g.mods.sparkLife, taken: false })
+      }
       puff(g, e.x, e.y, e.kind === 'cinder' ? 'rgba(255,80,50,0.8)' : 'rgba(40,32,34,0.9)', 6, 50, 0.35, 2)
     }
+    if (g.mods.killBlast > 0) scorch(g, e.x, e.y, g.mods.killBlastR, g.mods.killBlast)
   }
   compact(g.enemies, (e) => e.resolved)
 }
 
 function hurt(g: Game, amount: number, cause: string): void {
   if (g.state !== 'playing' || g.iframes > 0) return
+  if (g.mods.thorns > 0) {
+    const foe = nearest(g, g.player.x, g.player.y, 220)
+    if (foe) damageEnemy(foe, g.mods.thorns)
+  }
+  if (g.mods.revenge > 1) g.revenge = true
+  if (g.shields > 0) {
+    g.shields -= 1
+    g.iframes = 0.46
+    g.hurtFlash = 0.16
+    g.lastBlow = cause
+    floater(g, g.player.x, g.player.y - 22, 'Shield', '#ffe1a3')
+    puff(g, g.player.x, g.player.y, 'rgba(255,225,163,0.75)', 6, 50, 0.25, 1.8)
+    return
+  }
   const lost = amount * g.mods.touchMult
   g.heat = Math.max(0, g.heat - lost)
   g.iframes = 0.46
@@ -1039,10 +1198,10 @@ function trySnuff(g: Game, cause: string): void {
   if (g.heat > 0 || g.state !== 'playing') return
   if (g.mods.lastCoal && !g.coalSpent) {
     g.coalSpent = true
-    g.heat = Math.max(18, g.mods.maxHeat * 0.22)
+    g.heat = Math.max(g.mods.coalMin, g.mods.maxHeat * g.mods.coalFrac)
     g.iframes = Math.max(g.iframes, 0.9)
     g.shake = 8
-    floater(g, g.player.x, g.player.y - 28, 'Last coal saves you', '#f0b45a')
+    floater(g, g.player.x, g.player.y - 28, 'Coal saves you', '#f0b45a')
     puff(g, g.player.x, g.player.y, 'rgba(255,180,80,0.95)', 12, 90, 0.4, 2.4)
     if (g.mods.coalRing) {
       for (let i = 0; i < 10; i++) fireSpark(g, (i / 10) * TAU, g.mods.shotDamage * 0.8, false, true, 0.75)

@@ -1,3 +1,5 @@
+import type { ExtraId } from './upgrade-ids.ts'
+
 export type Kind = 'wisp' | 'cinder' | 'boss'
 
 export type UpgradeId =
@@ -18,6 +20,7 @@ export type UpgradeId =
   | 'halo'
   | 'coal'
   | 'lure'
+  | ExtraId
 
 export type CurseId = 'heavy' | 'thin' | 'hungry' | 'brittle' | 'dim' | 'sluggish' | 'swarm' | 'short'
 
@@ -72,6 +75,62 @@ export interface Mods {
   lastCoal: boolean
   coalRing: boolean
   collectRing: number
+  coalFrac: number
+  coalMin: number
+  brandFrac: number
+  brandTime: number
+  shotScale: number
+  killSpark: number
+  sparkLife: number
+  burstDmg: number
+  burstRange: number
+  fan: number
+  fanFrac: number
+  regen: number
+  roundHeat: number
+  pickupBonus: number
+  enemyHp: number
+  enemySpeed: number
+  critChance: number
+  critMult: number
+  splash: number
+  splashR: number
+  chain: number
+  chainR: number
+  chainFrac: number
+  killBlast: number
+  killBlastR: number
+  thorns: number
+  executeFrac: number
+  executeMult: number
+  lowHeatDmg: number
+  highHeatDmg: number
+  movingDmg: number
+  stillDmg: number
+  emberDps: number
+  venomDps: number
+  venomTime: number
+  wispMult: number
+  cinderMult: number
+  bossMult: number
+  closeMult: number
+  farMult: number
+  knock: number
+  auraDps: number
+  auraR: number
+  ricochet: number
+  wild: number
+  doubleEvery: number
+  salvage: number
+  salvageValue: number
+  siphon: number
+  shields: number
+  revenge: number
+  panic: number
+  laserMult: number
+  spawnCut: number
+  burstNova: number
+  burstNovaFrac: number
 }
 
 export interface Offer {
@@ -301,6 +360,8 @@ export interface Game {
   fireCd: number
   shotN: number
   coalSpent: boolean
+  shields: number
+  revenge: boolean
   orbitAng: number
   trailCd: number
   brambleCd: number

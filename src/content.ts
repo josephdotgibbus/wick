@@ -1,6 +1,8 @@
+import { applyCatalog, assertCatalog, catalogOf } from './catalog.ts'
 import type { Curses, CurseId, EventId, Kind, Mods, Offer, OfferId, Ranks, UpgradeId } from './types.ts'
+import { EXTRA_IDS } from './upgrade-ids.ts'
 
-export const UPGRADES: UpgradeId[] = [
+const BASE_UPGRADES = [
   'kindling',
   'split',
   'moth',
@@ -18,13 +20,15 @@ export const UPGRADES: UpgradeId[] = [
   'halo',
   'coal',
   'lure',
-]
+] as const satisfies readonly UpgradeId[]
+
+export const UPGRADES: UpgradeId[] = [...BASE_UPGRADES, ...EXTRA_IDS]
 
 export const CURSES: CurseId[] = ['heavy', 'thin', 'hungry', 'brittle', 'dim', 'sluggish', 'swarm', 'short']
 
 export const EVENTS: EventId[] = ['strong', 'slip', 'rubble', 'haste', 'starve', 'fog', 'vents', 'surge']
 
-const MAX_UP: Record<UpgradeId, number> = {
+const BASE_MAX: Record<(typeof BASE_UPGRADES)[number], number> = {
   kindling: 3,
   split: 2,
   moth: 1,
@@ -44,34 +48,46 @@ const MAX_UP: Record<UpgradeId, number> = {
   lure: 1,
 }
 
+const MAX_UP = {} as Record<UpgradeId, number>
+for (const id of BASE_UPGRADES) MAX_UP[id] = BASE_MAX[id]
+for (const id of EXTRA_IDS) MAX_UP[id] = catalogOf(id).max
+
 const MAX_CURSE = 2
 
-const WEIGHT: Record<UpgradeId, number> = {
-  kindling: 9,
-  hearth: 8,
-  slowburn: 8,
-  step: 8,
-  split: 7,
-  pierce: 6.5,
-  lure: 6,
-  moth: 5,
-  orbit: 5,
-  leech: 5,
-  brand: 5,
-  halo: 4.6,
-  pop: 4.4,
-  back: 4,
-  coal: 3.4,
-  nova: 3.2,
-  glass: 2.5,
+const BASE_WEIGHT: Record<(typeof BASE_UPGRADES)[number], number> = {
+  kindling: 16,
+  hearth: 15,
+  slowburn: 15,
+  step: 15,
+  split: 13,
+  pierce: 3.2,
+  lure: 3,
+  moth: 2.6,
+  orbit: 2.5,
+  leech: 2.5,
+  brand: 2.4,
+  halo: 0.48,
+  pop: 0.42,
+  back: 0.36,
+  coal: 0.3,
+  nova: 0.26,
+  glass: 0.2,
+}
+
+const WEIGHT = {} as Record<UpgradeId, number>
+for (const id of BASE_UPGRADES) WEIGHT[id] = BASE_WEIGHT[id]
+for (const id of EXTRA_IDS) WEIGHT[id] = catalogOf(id).weight
+
+export function upgradeWeight(id: UpgradeId): number {
+  return WEIGHT[id]
 }
 
 export type Rarity = 'common' | 'uncommon' | 'rare'
 
 export function upgradeRarity(id: UpgradeId): Rarity {
   const weight = WEIGHT[id]
-  if (weight >= 7) return 'common'
-  if (weight >= 5) return 'uncommon'
+  if (weight >= 8) return 'common'
+  if (weight >= 1.5) return 'uncommon'
   return 'rare'
 }
 
@@ -82,25 +98,9 @@ export function rarityName(rarity: Rarity): string {
 }
 
 export function emptyRanks(): Ranks {
-  return {
-    kindling: 0,
-    split: 0,
-    moth: 0,
-    orbit: 0,
-    pop: 0,
-    leech: 0,
-    brand: 0,
-    pierce: 0,
-    back: 0,
-    nova: 0,
-    glass: 0,
-    hearth: 0,
-    step: 0,
-    slowburn: 0,
-    halo: 0,
-    coal: 0,
-    lure: 0,
-  }
+  const ranks = {} as Ranks
+  for (const id of UPGRADES) ranks[id] = 0
+  return ranks
 }
 
 export function emptyCurses(): Curses {
@@ -140,8 +140,30 @@ export function iconFor(id: string): string {
     swarm: `<circle cx="22" cy="34" r="5" fill="${curse}"/><circle cx="36" cy="28" r="5" fill="${curse}"/><circle cx="42" cy="40" r="4" fill="${curse}"/>`,
     short: `<path d="M18 24 H46 L40 46 H24 Z" fill="none" stroke="${curse}" stroke-width="3"/>`,
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#16110e"/>${body[id] ?? ''}</svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#16110e"/>${body[id] ?? generatedMark(id)}</svg>`
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function generatedMark(id: string): string {
+  let hash = 2166136261
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619)
+  hash >>>= 0
+  const tier = (UPGRADES as string[]).includes(id) ? upgradeRarity(id as UpgradeId) : 'rare'
+  const ink = tier === 'rare' ? '#ffe1a3' : tier === 'uncommon' ? '#ff8a3d' : '#d9cfc4'
+  const ember = '#ff6a2c'
+  const shape = hash % 7
+  const spin = ((hash >>> 8) % 50) - 25
+  const a = 14 + (hash % 5)
+  const b = 10 + ((hash >>> 4) % 6)
+  let mark = ''
+  if (shape === 0) mark = `<circle cx="32" cy="32" r="${a}" fill="none" stroke="${ink}" stroke-width="3"/><circle cx="32" cy="32" r="4" fill="${ember}"/>`
+  else if (shape === 1) mark = `<path d="M32 12 L${32 + a} 32 L32 52 L${32 - a} 32 Z" fill="none" stroke="${ink}" stroke-width="3"/><circle cx="32" cy="32" r="3.5" fill="${ember}"/>`
+  else if (shape === 2) mark = `<path d="M18 44 H46 L32 ${44 - a * 1.6} Z" fill="${ember}" opacity="0.9"/><path d="M22 28 H42" stroke="${ink}" stroke-width="3"/>`
+  else if (shape === 3) mark = `<rect x="${32 - b}" y="16" width="${b * 2}" height="32" rx="3" fill="none" stroke="${ink}" stroke-width="3" transform="rotate(${spin} 32 32)"/><circle cx="32" cy="32" r="4" fill="${ember}"/>`
+  else if (shape === 4) mark = `<path d="M32 14 V50 M16 32 H48" stroke="${ink}" stroke-width="3"/><circle cx="32" cy="32" r="6" fill="${ember}"/>`
+  else if (shape === 5) mark = `<circle cx="22" cy="32" r="${b * 0.45}" fill="${ember}"/><circle cx="42" cy="32" r="${b * 0.35}" fill="${ink}"/><path d="M28 32 H36" stroke="${ink}" stroke-width="2"/>`
+  else mark = `<path d="M32 12 L36 26 H50 L39 34 L43 48 L32 39 L21 48 L25 34 L14 26 H28 Z" fill="none" stroke="${ink}" stroke-width="2.4"/><circle cx="32" cy="32" r="3" fill="${ember}"/>`
+  return mark
 }
 
 interface Blurb {
@@ -157,7 +179,7 @@ function faster(perRank: number, rank: number): string {
   return `${Math.round((Math.pow(perRank, rank) - 1) * 100)}%`
 }
 
-const UPGRADE_COPY: Record<UpgradeId, Blurb> = {
+const HAND: Record<(typeof BASE_UPGRADES)[number], Blurb> = {
   kindling: {
     name: 'Kindling',
     text: (n) => `Shots deal ${Math.round(8 + n * 4.2)} damage instead of 8, and they grow a little larger.`,
@@ -322,6 +344,62 @@ export function modsFrom(ranks: Ranks, curses: Curses): Mods {
     lastCoal: ranks.coal > 0,
     coalRing: false,
     collectRing: ranks.lure > 0 ? 52 : 0,
+    coalFrac: 0.22,
+    coalMin: 18,
+    brandFrac: ranks.brand > 0 ? 0.5 : 0,
+    brandTime: ranks.brand > 0 ? 0.8 : 0,
+    shotScale: 1,
+    killSpark: 5.5,
+    sparkLife: 11,
+    burstDmg: 18,
+    burstRange: 86,
+    fan: 0,
+    fanFrac: 0.4,
+    regen: 0,
+    roundHeat: 0,
+    pickupBonus: 0,
+    enemyHp: 1,
+    enemySpeed: 1,
+    critChance: 0,
+    critMult: 1,
+    splash: 0,
+    splashR: 48,
+    chain: 0,
+    chainR: 150,
+    chainFrac: 0.55,
+    killBlast: 0,
+    killBlastR: 64,
+    thorns: 0,
+    executeFrac: 0,
+    executeMult: 1,
+    lowHeatDmg: 1,
+    highHeatDmg: 1,
+    movingDmg: 1,
+    stillDmg: 1,
+    emberDps: 0,
+    venomDps: 0,
+    venomTime: 1.4,
+    wispMult: 1,
+    cinderMult: 1,
+    bossMult: 1,
+    closeMult: 1,
+    farMult: 1,
+    knock: 0,
+    auraDps: 0,
+    auraR: 70,
+    ricochet: 0,
+    wild: 0,
+    doubleEvery: 0,
+    salvage: 0,
+    salvageValue: 4,
+    siphon: 0,
+    shields: 0,
+    revenge: 0,
+    panic: 1,
+    laserMult: 1,
+    spawnCut: 0,
+    burstNova: 0,
+    burstNovaFrac: 0.45,
   }
   if (ranks.glass > 0) {
     mods.shotDamage *= 1.82
@@ -373,6 +451,7 @@ export function modsFrom(ranks: Ranks, curses: Curses): Mods {
     mods.decayMult *= 0.82
     mods.maxHeat += 12
   }
+  applyCatalog(mods, ranks)
 
   mods.speed *= Math.pow(0.84, curses.heavy)
   mods.maxHeat *= Math.pow(0.84, curses.thin)
@@ -401,18 +480,23 @@ export function roman(n: number): string {
   return glyphs[n] ?? String(n)
 }
 
+function wickCopy(id: UpgradeId): Blurb {
+  if (id in HAND) return HAND[id as (typeof BASE_UPGRADES)[number]]
+  return catalogOf(id as (typeof EXTRA_IDS)[number])
+}
+
 export function upgradeName(id: OfferId): string {
-  if (id in UPGRADE_COPY) return UPGRADE_COPY[id as UpgradeId].name
+  if (isUpgrade(id)) return wickCopy(id).name
   return CURSE_COPY[id as CurseId].name
 }
 
 export function effectOf(id: OfferId, rank: number): string {
-  if (id in UPGRADE_COPY) return UPGRADE_COPY[id as UpgradeId].text(rank)
+  if (isUpgrade(id)) return wickCopy(id).text(rank)
   return CURSE_COPY[id as CurseId].text(rank)
 }
 
 export function buildPhrase(ranks: Ranks, curses: Curses): string {
-  const ups = UPGRADES.filter((id) => ranks[id] > 0).map((id) => `${UPGRADE_COPY[id].name} ${roman(ranks[id])}`)
+  const ups = UPGRADES.filter((id) => ranks[id] > 0).map((id) => `${wickCopy(id).name} ${roman(ranks[id])}`)
   const downs = CURSES.filter((id) => curses[id] > 0).map((id) => `${CURSE_COPY[id].name} ${roman(curses[id])}`)
   if (ups.length === 0 && downs.length === 0) return 'No upgrades'
   return [...ups, ...downs].join(' · ')
@@ -429,31 +513,29 @@ export function rollOffers(rng: () => number, ranks: Ranks, curses: Curses, kind
   const picks: UpgradeId[] = []
   const bag = [...source]
   while (picks.length < 3 && bag.length) {
-    const weights = bag.map((id) => WEIGHT[id] + partnerBias(id, ranks))
+    const weights = bag.map((id) => offerWeight(id, ranks))
     const id = weighted(rng, bag, weights)
     picks.push(id)
     bag.splice(bag.indexOf(id), 1)
   }
   while (picks.length < 3) picks.push(source[picks.length % source.length]!)
-  if (picks.every((id) => WEIGHT[id] >= 7)) {
-    const spicy = bag.find((id) => WEIGHT[id] < 7)
-    if (spicy) picks[2] = spicy
-  }
   return picks.map((id) => upgradeOffer(id, ranks))
 }
 
-function partnerBias(id: UpgradeId, ranks: Ranks): number {
+function offerWeight(id: UpgradeId, ranks: Ranks): number {
+  const base = WEIGHT[id]
   const mates = PARTNERS[id] ?? []
-  return mates.some((mate) => ranks[mate] > 0) ? 9 : 0
+  return mates.some((mate) => ranks[mate] > 0) ? base * 1.28 : base
 }
 
 function upgradeOffer(id: UpgradeId, ranks: Ranks): Offer {
   const next = Math.min(MAX_UP[id], ranks[id] + 1)
+  const copy = wickCopy(id)
   return {
     id,
     kind: 'upgrade',
-    name: UPGRADE_COPY[id].name,
-    text: UPGRADE_COPY[id].text(next),
+    name: copy.name,
+    text: copy.text(next),
     hint: null,
     rank: next,
     max: MAX_UP[id],
@@ -596,6 +678,8 @@ export function eulogyFor(cause: string): string {
 export function isUpgrade(id: OfferId): id is UpgradeId {
   return (UPGRADES as string[]).includes(id)
 }
+
+assertCatalog()
 
 export function isCurse(id: OfferId): id is CurseId {
   return (CURSES as string[]).includes(id)

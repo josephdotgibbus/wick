@@ -186,7 +186,8 @@ input { user-select: text; }
 
 .timeblock { text-align: right; }
 
-#hud.quiet .scoreblock { visibility: hidden; }
+#hud.quiet .scoreblock,
+#hud.quiet #burst { visibility: hidden; }
 
 #clock {
   font-family: var(--serif);
@@ -741,7 +742,7 @@ fieldset {
 @media (max-width: 800px) {
   .choices { grid-template-columns: 1fr; }
   .cards { grid-template-columns: 1fr; }
-  #panel-level { margin-top: 84px; }
+  #shell.overlay #panel-level { margin-top: 148px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
