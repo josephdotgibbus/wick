@@ -1,24 +1,47 @@
 # WICK
 
-A boss-rush survival game. You are a flame in the dark. The heat bar is your life: it drains on its own, and touching an enemy spends more. Sparks on the ground fill it back up. There is no score.
+A dungeon of rooms. You are a flame in the dark. Hearts take the hits. Heat is the wick: it burns down on its own, and sparks fill it back up. There is no score.
 
-Each round ends when every enemy that was going to arrive is dead. Shots fire at the nearest enemy by themselves. Then you pick one of three upgrades. There are more than a hundred of them, and the card says what that one does. Its color is how often it is offered: gray is common, orange is uncommon, and gold is rare. A specific rare wick is offered many times less often than a specific common one. Every fifth round you fight the Briar and must take a curse, shown in red. Upgrades lists everything you are carrying, with the effect written out.
+Each room holds its own enemies. The doors stay shut until they are dead. A cleared room has a chance to leave a coin, a spark, or a soul heart. Shots fire at the nearest enemy by themselves. The last room is the Briar. After it falls, a chest and a stair appear. The stair starts the next dungeon.
+
+One treasure room on each dungeon holds three pedestals. Stand next to one and a small panel shows what it would do. You can take only one. The shelf is empty until you write upgrades in `src/upgrades.ts`.
+
+## Stats
+
+The flame keeps the Binding of Isaac stat line:
+
+- **Speed** starts at 1.00. Movement is 170 pixels a second times speed.
+- **Tears** starts at 2.73. That number is shots per second.
+- **Damage** starts at 3.50. That number is the damage of one shot.
+- **Range** starts at 6.50. A shot travels `range × 28` pixels.
+- **Shot speed** starts at 1.00. A shot moves at `150 × shot speed` pixels a second.
+- **Luck** starts at 0. It raises the chance of a room drop and of a chest holding an upgrade.
+- **Red hearts** start at 3. Enemy touches spend half a heart, or a full heart for the Briar, a beam, or a spike.
+- **Soul hearts** start at 0. Damage spends them before red hearts.
+
+A blessing can raise one of those before the run. Reaching later dungeons unlocks them.
 
 ## Play
 
 - **Steer:** before the run, choose mouse or keys. Only that one moves you.
 - **Mouse:** the cursor pulls the flame. A touch drag does the same.
 - **Keys:** WASD, arrows, or a gamepad stick.
-- **Burst:** Space, click, or the Burst button. It spends a little heat, dashes, and damages enemies it passes through.
-- **Draft:** after a clear, dropped sparks fly to you, then you pick one upgrade.
-- **Curses:** every fifth clear, you must take a penalty. The card states the downside.
-- **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss.
+- **Burst:** Space, click, or the Burst button. It spends a little heat and dashes through enemies.
+- **Active:** Q, or the Active button. The slot starts empty. Room clears charge it.
+- **Take:** E or F, or the button that appears when you are close. It takes a pedestal, opens a chest, or climbs the stair.
+- **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss. Stats lists the six numbers.
 
-Wisps are small and red-eyed. They arrive one by one, later rounds send more, and each one takes a lot of killing. Shots thin out before they vanish. From round 4, a red enemy sometimes stops, draws a warning line, then fires a thin beam. Only the beam hurts. Stones block you. Pits drain heat. Bramble hurts when you touch it. From round 6 on, half of the rounds add a twist, and the banner says which one.
+Wisps are small and red-eyed. Red enemies stop, draw a warning line, then fire a beam. Only the beam takes hearts. Rocks and walls block the way. Pits drain heat. Bramble takes a half heart. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one.
 
-The Briar's spikes sit in its body and spin with it. They slow, aim at random, and then fly a long way.
+The Briar's spikes sit in its body and spin with it. They slow, aim at random, and then fly across the room.
 
-The same seed repeats the map and the spawns. Blessings unlock from how far you have gotten and change the next start. Everything is saved in this browser.
+Coins sit on the floor, drop when a room is cleared, and come out of chests. A chest is uncommon in a combat room, and one appears after the Briar. Opening it spills a few coins and, rarely, a free upgrade once any exist.
+
+The same seed repeats the rooms, the coins, and where enemies stand. How you move can still differ. Everything is saved in this browser.
+
+## Adding an upgrade
+
+Put an object in the `UPGRADES` list in `src/upgrades.ts`. A passive changes stats. An active goes in the one active slot. Its `use` key is the name you can handle later in `useActive` inside `src/sim.ts`. Until you add one, pedestals stay bare and chests pay coins only.
 
 ## Run locally
 
@@ -27,7 +50,7 @@ npm install
 npm run dev
 ```
 
-The dev server listens on port **4731**. `npm run build` writes a static site to `dist/`. `npm run soak` plays three scripted runs against the simulation to catch crashes and a dead-on-arrival balance.
+The dev server listens on port **4731**. `npm run build` writes a static site to `dist/`. `npm run soak` plays three scripted runs against the simulation.
 
 ## GitHub Pages
 

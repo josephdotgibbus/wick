@@ -1,5 +1,6 @@
-import { lightOf } from './content.ts'
-import type { Bullet, Decor, Enemy, Game, Obstacle, Particle } from './types.ts'
+import { doorCenter } from './dungeon.ts'
+import type { Bullet, Decor, Enemy, Game, Particle, Room } from './types.ts'
+import { TILE } from './types.ts'
 
 const TAU = Math.PI * 2
 
@@ -28,27 +29,16 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   const shake = g.shake
   const sx = (Math.random() - 0.5) * shake
   const sy = (Math.random() - 0.5) * shake
-  const light = lightOf(g.heat, g.mods.maxHeat, g.mods.light)
   const menu = g.state === 'menu' || g.state === 'steer'
-  const camY = menu ? h * 0.2 : h / 2
+  const cam = menu ? { x: g.player.x, y: g.player.y - h * 0.28, zoom: 1 } : camera(g, w, h)
 
   ctx.save()
-  ctx.translate(w / 2 + sx, camY + sy)
-  ctx.translate(-g.player.x, -g.player.y)
+  ctx.translate(w / 2 + sx, h / 2 + sy)
+  ctx.scale(cam.zoom, cam.zoom)
+  ctx.translate(-cam.x, -cam.y)
 
-  drawGround(ctx, g.player.x, g.player.y, w, h)
-  if (!menu) {
-    drawPool(ctx, g, light)
-    for (const chunk of g.chunks.values()) {
-      for (const o of chunk.obstacles) drawStone(ctx, o)
-      for (const hz of chunk.hazards) drawHazard(ctx, hz.x, hz.y, hz.r, hz.kind, view.wall)
-      for (const s of chunk.sparks) if (!s.taken) drawSpark(ctx, s.x, s.y, view.wall)
-    }
-    for (const o of g.extras) drawStone(ctx, o)
-    for (const hz of g.extraHazards) drawHazard(ctx, hz.x, hz.y, hz.r, hz.kind, view.wall)
-    for (const p of g.patches) drawPatch(ctx, p.x, p.y, p.r, p.life / p.max)
-    for (const s of g.sparks) if (!s.taken) drawSpark(ctx, s.x, s.y, view.wall)
-  }
+  if (menu) drawGround(ctx, g.player.x, g.player.y, w, h)
+  else drawRoom(ctx, g, view.wall)
   for (const wline of g.warnings) drawWarning(ctx, wline.x, wline.y, wline.ang, wline.len, wline.life / wline.max, wline.thin)
   for (const beam of g.beams) drawBeam(ctx, beam.x, beam.y, beam.ang, beam.len, beam.width, beam.life / beam.max, beam.color)
   for (const p of g.particles) if (p.behind) drawParticle(ctx, p)
@@ -58,16 +48,6 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   }
   for (const e of g.enemies) drawEnemy(ctx, e, view.wall)
   for (const b of g.bullets) drawBullet(ctx, b)
-  drawOrbit(ctx, g)
-  if (g.mods.haloDps > 0) {
-    ctx.beginPath()
-    ctx.arc(g.player.x, g.player.y, light, 0, TAU)
-    ctx.strokeStyle = 'rgba(255, 140, 60, 0.32)'
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 7])
-    ctx.stroke()
-    ctx.setLineDash([])
-  }
   drawFlame(ctx, g, view.wall)
   for (const p of g.particles) if (!p.behind) drawParticle(ctx, p)
   ctx.globalAlpha = 1
@@ -79,9 +59,20 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.fillText(f.text, f.x, f.y)
   }
   ctx.globalAlpha = 1
+  if (!menu && g.state !== 'dead') {
+    const span = Math.max(w, h) / cam.zoom
+    const glow = ctx.createRadialGradient(g.player.x, g.player.y, g.light * 0.45, g.player.x, g.player.y, g.light)
+    glow.addColorStop(0, 'rgba(0,0,0,0)')
+    glow.addColorStop(1, 'rgba(0,0,0,0.55)')
+    ctx.fillStyle = glow
+    ctx.fillRect(g.player.x - span, g.player.y - span, span * 2, span * 2)
+  }
   ctx.restore()
 
-  if (!menu) drawMarkers(ctx, g, w, h)
+  if (!menu) {
+    drawMarkers(ctx, g, w, h)
+    drawMap(ctx, g, w, h)
+  }
   drawVignette(ctx, g, w, h)
   if (g.slip && g.state === 'playing') {
     ctx.fillStyle = 'rgba(180, 200, 220, 0.04)'
@@ -97,6 +88,169 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.fillRect(0, 0, w, h)
   }
   if (view.steer && g.control === 'mouse') drawStick(ctx, view.steer)
+}
+
+function camera(g: Game, w: number, h: number): { x: number; y: number; zoom: number } {
+  const here = g.rooms[g.roomIndex]
+  if (!here) return { x: g.player.x, y: g.player.y, zoom: 1 }
+  const rw = here.w * TILE
+  const rh = here.h * TILE
+  const fit = Math.min((w - 36) / rw, (h - 150) / rh)
+  const zoom = Math.min(2.8, Math.max(1, fit))
+  if (rw * zoom <= w && rh * zoom <= h) return { x: rw / 2, y: rh / 2, zoom }
+  const viewW = w / zoom
+  const viewH = h / zoom
+  return {
+    x: Math.min(rw - viewW / 2, Math.max(viewW / 2, g.player.x)),
+    y: Math.min(rh - viewH / 2, Math.max(viewH / 2, g.player.y)),
+    zoom,
+  }
+}
+
+function drawRoom(ctx: CanvasRenderingContext2D, g: Game, t: number): void {
+  const here = g.rooms[g.roomIndex]
+  if (!here) return
+  for (let y = 0; y < here.h; y++) {
+    for (let x = 0; x < here.w; x++) {
+      const tile = here.tiles[y * here.w + x] ?? 1
+      const px = x * TILE
+      const py = y * TILE
+      if (tile === 1) {
+        ctx.fillStyle = '#1a1412'
+        ctx.fillRect(px, py, TILE + 0.5, TILE + 0.5)
+        ctx.fillStyle = 'rgba(246, 239, 228, 0.05)'
+        ctx.fillRect(px, py, TILE, 3)
+      } else if (tile === 2) {
+        ctx.fillStyle = '#241812'
+        ctx.fillRect(px, py, TILE, TILE)
+        drawStoneTile(ctx, px + TILE / 2, py + TILE / 2)
+      } else {
+        const shade = ((x * 17 + y * 9) % 5) / 80
+        ctx.fillStyle = `rgb(${28 + shade * 40}, ${18 + shade * 20}, ${14 + shade * 12})`
+        ctx.fillRect(px, py, TILE + 0.5, TILE + 0.5)
+        if (tile === 3) drawHazard(ctx, px + TILE / 2, py + TILE / 2, 12, 'pit', t)
+        if (tile === 4) drawHazard(ctx, px + TILE / 2, py + TILE / 2, 11, 'bramble', t)
+      }
+    }
+  }
+  for (const door of here.doors) drawDoor(ctx, here, door.dir, door.tx, door.ty, here.cleared)
+  for (const coin of here.coins) if (!coin.taken) drawPickup(ctx, coin.x, coin.y, coin.kind, t)
+  for (const pedestal of here.pedestals) drawPedestal(ctx, pedestal.x, pedestal.y, !!pedestal.upgradeId && !pedestal.taken, pedestal.taken)
+  if (here.chest && (here.kind !== 'boss' || here.cleared)) drawChest(ctx, here.chest.x, here.chest.y, here.chest.opened, t)
+  if (here.stair) drawStair(ctx, (here.w * TILE) / 2, (here.h * TILE) / 2 + 70, t)
+}
+
+function drawDoor(
+  ctx: CanvasRenderingContext2D,
+  here: Room,
+  dir: 'n' | 'e' | 's' | 'w',
+  tx: number,
+  ty: number,
+  open: boolean,
+): void {
+  const at = doorCenter({ dir, to: 0, tx, ty })
+  ctx.save()
+  ctx.translate(at.x, at.y)
+  ctx.fillStyle = open ? 'rgba(240, 180, 90, 0.85)' : 'rgba(90, 70, 64, 0.9)'
+  if (dir === 'n' || dir === 's') ctx.fillRect(-TILE, -4, TILE * 2, 8)
+  else ctx.fillRect(-4, -TILE, 8, TILE * 2)
+  ctx.restore()
+  void here
+}
+
+function drawStoneTile(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.beginPath()
+  ctx.arc(x, y, 11, 0, TAU)
+  ctx.fillStyle = '#3a302c'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(246, 239, 228, 0.18)'
+  ctx.stroke()
+}
+
+function drawPickup(ctx: CanvasRenderingContext2D, x: number, y: number, kind: 'coin' | 'spark' | 'soul', t: number): void {
+  const bob = Math.sin(t * 4 + x) * 2
+  ctx.beginPath()
+  ctx.arc(x, y + bob, kind === 'coin' ? 5 : 6, 0, TAU)
+  ctx.fillStyle = kind === 'coin' ? '#f0b45a' : kind === 'soul' ? '#8ecbff' : '#ffb15a'
+  ctx.fill()
+}
+
+function drawPedestal(ctx: CanvasRenderingContext2D, x: number, y: number, full: boolean, taken: boolean): void {
+  ctx.fillStyle = '#2a211c'
+  ctx.fillRect(x - 10, y - 4, 20, 16)
+  ctx.fillStyle = taken ? '#4a403a' : '#6a5348'
+  ctx.fillRect(x - 7, y - 16, 14, 14)
+  if (full) {
+    ctx.beginPath()
+    ctx.arc(x, y - 22, 6, 0, TAU)
+    ctx.fillStyle = '#ffe1a3'
+    ctx.fill()
+  }
+}
+
+function drawChest(ctx: CanvasRenderingContext2D, x: number, y: number, opened: boolean, t: number): void {
+  ctx.fillStyle = opened ? '#3a2a22' : '#6a3e28'
+  ctx.fillRect(x - 12, y - 8, 24, 16)
+  ctx.fillStyle = opened ? '#2a201c' : '#f0b45a'
+  ctx.fillRect(x - 12, y - 10, 24, 5)
+  if (!opened) {
+    ctx.globalAlpha = 0.35 + Math.sin(t * 3) * 0.15
+    ctx.fillStyle = '#ffe1a3'
+    ctx.fillRect(x - 2, y - 4, 4, 8)
+    ctx.globalAlpha = 1
+  }
+}
+
+function drawStair(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
+  ctx.beginPath()
+  ctx.arc(x, y, 16 + Math.sin(t * 3) * 1.5, 0, TAU)
+  ctx.strokeStyle = 'rgba(255, 225, 163, 0.8)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.fillStyle = '#120e10'
+  ctx.beginPath()
+  ctx.arc(x, y, 8, 0, TAU)
+  ctx.fill()
+}
+
+function drawMap(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number): void {
+  if (!g.rooms.length) return
+  const cell = 14
+  const gap = 4
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const room of g.rooms) {
+    minX = Math.min(minX, room.gx)
+    minY = Math.min(minY, room.gy)
+    maxX = Math.max(maxX, room.gx)
+    maxY = Math.max(maxY, room.gy)
+  }
+  const cols = maxX - minX + 1
+  const rows = maxY - minY + 1
+  const width = cols * cell + (cols - 1) * gap
+  const height = rows * cell + (rows - 1) * gap
+  const originX = Math.max(16, w - width - 18)
+  const originY = Math.max(16, h - height - 108)
+  ctx.fillStyle = 'rgba(16, 12, 10, 0.78)'
+  ctx.fillRect(originX - 8, originY - 8, width + 16, height + 16)
+  for (const room of g.rooms) {
+    const x = originX + (room.gx - minX) * (cell + gap)
+    const y = originY + (room.gy - minY) * (cell + gap)
+    const current = room.id === g.roomIndex
+    ctx.fillStyle = current
+      ? '#f6efe4'
+      : room.kind === 'treasure'
+        ? '#f0b45a'
+        : room.kind === 'boss'
+          ? '#ff4d3a'
+          : room.visited
+            ? 'rgba(246,239,228,0.45)'
+            : 'rgba(246,239,228,0.16)'
+    ctx.fillRect(x, y, cell, cell)
+  }
+  void w
 }
 
 function drawParticle(ctx: CanvasRenderingContext2D, p: Particle): void {
@@ -131,38 +285,6 @@ function hash2(x: number, y: number): number {
   return n >>> 0
 }
 
-function drawPool(ctx: CanvasRenderingContext2D, g: Game, light: number): void {
-  const pool = ctx.createRadialGradient(g.player.x, g.player.y, light * 0.08, g.player.x, g.player.y, light * 1.65)
-  pool.addColorStop(0, 'rgba(255, 120, 40, 0.16)')
-  pool.addColorStop(0.5, 'rgba(120, 36, 8, 0.05)')
-  pool.addColorStop(1, 'rgba(0, 0, 0, 0)')
-  ctx.fillStyle = pool
-  ctx.beginPath()
-  ctx.arc(g.player.x, g.player.y, light * 1.65, 0, TAU)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(g.player.x, g.player.y, light, 0, TAU)
-  ctx.strokeStyle = 'rgba(255, 170, 90, 0.14)'
-  ctx.lineWidth = 1
-  ctx.setLineDash([2, 8])
-  ctx.stroke()
-  ctx.setLineDash([])
-}
-
-function drawStone(ctx: CanvasRenderingContext2D, o: Obstacle): void {
-  ctx.beginPath()
-  ctx.arc(o.x, o.y, o.r, 0, TAU)
-  ctx.fillStyle = '#1a1614'
-  ctx.fill()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = 'rgba(246, 239, 228, 0.16)'
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.arc(o.x - o.r * 0.25, o.y - o.r * 0.3, o.r * 0.22, 0, TAU)
-  ctx.fillStyle = 'rgba(246, 239, 228, 0.05)'
-  ctx.fill()
-}
-
 function drawHazard(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, kind: 'pit' | 'bramble', t: number): void {
   ctx.beginPath()
   ctx.arc(x, y, r, 0, TAU)
@@ -190,13 +312,6 @@ function drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, t: numbe
   ctx.fillStyle = 'rgba(255, 244, 220, 0.9)'
   ctx.beginPath()
   ctx.arc(x, y - 0.4, 1.1, 0, TAU)
-  ctx.fill()
-}
-
-function drawPatch(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fade: number): void {
-  ctx.fillStyle = `rgba(255, 92, 24, ${0.16 * Math.min(1, fade * 1.4)})`
-  ctx.beginPath()
-  ctx.arc(x, y, r, 0, TAU)
   ctx.fill()
 }
 
@@ -364,29 +479,6 @@ function drawBoss(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
   }
 }
 
-function drawOrbit(ctx: CanvasRenderingContext2D, g: Game): void {
-  const n = g.mods.orbit
-  if (n <= 0) return
-  const radius = 40
-  for (let i = 0; i < n; i++) {
-    const ang = g.orbitAng + (i / n) * TAU
-    const x = g.player.x + Math.cos(ang) * radius
-    const y = g.player.y + Math.sin(ang) * radius
-    ctx.save()
-    ctx.translate(x, y)
-    ctx.rotate(ang)
-    ctx.fillStyle = '#f4ebe3'
-    ctx.beginPath()
-    ctx.moveTo(8, 0)
-    ctx.lineTo(-5, 3.2)
-    ctx.lineTo(-2, 0)
-    ctx.lineTo(-5, -3.2)
-    ctx.closePath()
-    ctx.fill()
-    ctx.restore()
-  }
-}
-
 function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
   const ang = Math.atan2(b.vy, b.vx)
   ctx.save()
@@ -426,7 +518,7 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
 }
 
 function drawFlame(ctx: CanvasRenderingContext2D, g: Game, wall: number): void {
-  const heat = g.mods.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.mods.maxHeat
+  const heat = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   let scale = 14 + heat * 8
   if (g.state === 'dying' || g.state === 'dead') scale *= Math.max(0, g.snuff)
   if (scale < 0.5) return
@@ -481,7 +573,7 @@ function drawMarkers(ctx: CanvasRenderingContext2D, g: Game, w: number, h: numbe
 }
 
 function drawVignette(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number): void {
-  const heat = g.mods.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.mods.maxHeat
+  const heat = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   const cold = Math.max(0, 0.42 - heat)
   const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.18, w / 2, h / 2, Math.max(w, h) * 0.68)
   vg.addColorStop(0, 'rgba(0,0,0,0)')

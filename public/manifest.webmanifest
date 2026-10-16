@@ -1,7 +1,7 @@
 {
   "name": "WICK",
   "short_name": "WICK",
-  "description": "Heat is your life. Clear the round, then pick an upgrade.",
+  "description": "Hearts take the hits. Heat is the wick. Clear each room to open its doors.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#100c0a",

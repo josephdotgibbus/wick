@@ -6,7 +6,6 @@ import { Sound } from './audio.ts'
 import { render } from './render.ts'
 import { dailySeed, parseSeed, randomSeed } from './rng.ts'
 import {
-  chooseUpgrade,
   confirmControl,
   createGame,
   endRun,
@@ -49,6 +48,8 @@ let committed = -1
 
 const keys = new Set<string>()
 let burstQueued = false
+let useQueued = false
+let interactQueued = false
 let steerId: number | null = null
 let originX = 0
 let originY = 0
@@ -83,6 +84,26 @@ function takeBurst(): boolean {
   return had
 }
 
+function queueUse(): void {
+  useQueued = true
+}
+
+function takeUse(): boolean {
+  const had = useQueued
+  useQueued = false
+  return had
+}
+
+function queueInteract(): void {
+  interactQueued = true
+}
+
+function takeInteract(): boolean {
+  const had = interactQueued
+  interactQueued = false
+  return had
+}
+
 function typing(): boolean {
   const el = document.activeElement
   return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
@@ -108,11 +129,6 @@ mount({
     session.record = false
     session.dailyRecord = false
   },
-  pick: (index) => {
-    const serial = game.offerSerial
-    chooseUpgrade(game, index)
-    if (game.offerSerial !== serial || game.state !== 'levelup') sound.pick()
-  },
   resume: () => {
     if (game.state === 'playing' || game.state === 'paused') togglePause(game)
   },
@@ -125,6 +141,12 @@ mount({
   blessing: (id) => setBlessing(save, id),
   burst: () => {
     if (game.state === 'playing') queueBurst()
+  },
+  use: () => {
+    if (game.state === 'playing') queueUse()
+  },
+  interact: () => {
+    if (game.state === 'playing') queueInteract()
   },
   steer: (mode) => {
     sound.unlock()
@@ -140,6 +162,8 @@ function begin(mode: Mode, seed: number): void {
   sound.ui()
   mouseSeen = false
   burstQueued = false
+  useQueued = false
+  interactQueued = false
   const blessing = allowedBlessing(save)
   const bestAtStart = mode === 'daily' ? todayBest(save) : save.bestRound
   session.fresh = []
@@ -162,6 +186,8 @@ window.addEventListener('keydown', (event) => {
   keys.add(event.code)
   if (event.repeat) return
   if (event.code === 'Space' && game.state === 'playing') queueBurst()
+  if (event.code === 'KeyQ' && game.state === 'playing') queueUse()
+  if ((event.code === 'KeyE' || event.code === 'KeyF') && game.state === 'playing') queueInteract()
   if (event.code === 'KeyM') {
     setMuted(save, !save.muted)
     sound.setMuted(save.muted)
@@ -183,14 +209,6 @@ window.addEventListener('keydown', (event) => {
     if (event.code === 'Digit2' || event.code === 'Numpad2') {
       setControl(save, 'keys')
       confirmControl(game, 'keys')
-    }
-  }
-  if (game.state === 'levelup') {
-    const index = { Digit1: 0, Numpad1: 0, Digit2: 1, Numpad2: 1, Digit3: 2, Numpad3: 2 }[event.code]
-    if (index !== undefined) {
-      const serial = game.offerSerial
-      chooseUpgrade(game, index)
-      if (game.offerSerial !== serial || game.state !== 'levelup') sound.pick()
     }
   }
 })
@@ -257,7 +275,7 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     if (keys.has('KeyS') || keys.has('ArrowDown')) ay += 1
     if (ax !== 0 || ay !== 0) {
       const m = Math.hypot(ax, ay)
-      return { input: { ax: ax / m, ay: ay / m, burst: takeBurst() }, steer: null }
+      return pack(ax / m, ay / m, takeBurst(), null)
     }
   }
 
@@ -266,8 +284,7 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     const m = Math.hypot(pad.x, pad.y)
     const mag = m < 0.22 ? 0 : Math.min(1, (m - 0.22) / 0.7)
     return {
-      input: { ax: m === 0 ? 0 : (pad.x / m) * mag, ay: m === 0 ? 0 : (pad.y / m) * mag, burst: takeBurst() || pad.burst },
-      steer: null,
+      ...pack(m === 0 ? 0 : (pad.x / m) * mag, m === 0 ? 0 : (pad.y / m) * mag, takeBurst() || pad.burst, null),
     }
   }
 
@@ -279,8 +296,7 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     const nx = d === 0 ? 0 : (dx / d) * mag
     const ny = d === 0 ? 0 : (dy / d) * mag
     return {
-      input: { ax: nx, ay: ny, burst: takeBurst() },
-      steer: { ox: originX, oy: originY, ax: nx, ay: ny },
+      ...pack(nx, ny, takeBurst(), { ox: originX, oy: originY, ax: nx, ay: ny }),
     }
   }
 
@@ -290,12 +306,20 @@ function readInput(): { input: FrameInput; steer: { ox: number; oy: number; ax: 
     const d = Math.hypot(dx, dy)
     const mag = d < 22 ? 0 : Math.min(1, (d - 22) / 120)
     return {
-      input: { ax: d === 0 ? 0 : (dx / d) * mag, ay: d === 0 ? 0 : (dy / d) * mag, burst: takeBurst() },
-      steer: null,
+      ...pack(d === 0 ? 0 : (dx / d) * mag, d === 0 ? 0 : (dy / d) * mag, takeBurst(), null),
     }
   }
 
-  return { input: { ax: 0, ay: 0, burst: takeBurst() }, steer: null }
+  return pack(0, 0, takeBurst(), null)
+}
+
+function pack(
+  ax: number,
+  ay: number,
+  burst: boolean,
+  steer: { ox: number; oy: number; ax: number; ay: number } | null,
+): { input: FrameInput; steer: { ox: number; oy: number; ax: number; ay: number } | null } {
+  return { input: { ax, ay, burst, use: takeUse(), interact: takeInteract() }, steer }
 }
 
 function pointerOverUi(x: number, y: number): boolean {
@@ -334,7 +358,7 @@ function settle(g: Game, current: Save): void {
   if (g.state !== 'dead' || committed === g.runSerial) return
   committed = g.runSerial
   const result = commitRun(current, {
-    round: g.round,
+    round: g.dungeon,
     time: g.time,
     bossKills: g.bossKills,
     seedLabel: g.seedLabel,
@@ -354,7 +378,7 @@ function frame(now: number): void {
     tick(game, input, dt)
     playEvents(game)
     settle(game, save)
-    const heat = game.mods.maxHeat <= 0 ? 0 : Math.max(0, game.heat) / game.mods.maxHeat
+    const heat = game.maxHeat <= 0 ? 0 : Math.max(0, game.heat) / game.maxHeat
     const boss = game.enemies.some((e) => e.kind === 'boss' && !e.dead)
     sound.mood(heat, false, boss, game.state === 'playing' || game.state === 'dying')
     render(ctx, game, { wall: now / 1000, dpr, width: viewW, height: viewH, steer })

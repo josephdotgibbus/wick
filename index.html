@@ -8,7 +8,7 @@
     <meta name="color-scheme" content="dark" />
     <meta
       name="description"
-      content="WICK is a short survival game. Heat is your life. Clear each round, then pick an upgrade that says exactly what it does."
+      content="WICK is a dungeon of rooms. Hearts take hits. Heat is the wick. Clear a room to open its doors."
     />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,9 +25,11 @@
             <div class="heat-fill" id="heat-fill"></div>
           </div>
           <div class="heatmeta">
-            <span id="heat-label">Heat · life</span>
+            <span id="heat-label">Heat · the wick</span>
             <span id="hint"></span>
           </div>
+          <div id="hearts" aria-label="Hearts"></div>
+          <div id="coins">0 coins</div>
         </div>
         <div class="scoreblock">
           <div id="round-label" class="score">Round 1</div>
@@ -45,11 +47,13 @@
         <div class="bossbar"><div id="boss-fill"></div></div>
       </div>
       <div class="bottom">
-        <div class="levelblock">
-          <button id="loadout-btn" type="button">Upgrades</button>
-          <button id="pause-btn" type="button" hidden>Pause</button>
-        </div>
-        <button id="burst" type="button">Burst</button>
+          <div class="levelblock">
+            <button id="loadout-btn" type="button">Stats</button>
+            <button id="pause-btn" type="button" hidden>Pause</button>
+          </div>
+          <button id="active" type="button">Active<small>Q</small></button>
+          <button id="take" type="button" hidden>Take<small>E</small></button>
+          <button id="burst" type="button">Burst</button>
         <button id="keycap" type="button">
           <i id="keycap-fill"></i>
           <span>Burst<small>Space</small></span>
@@ -65,9 +69,9 @@
         <p class="kicker">Survival arcade</p>
         <h1>Wick</h1>
         <p class="lede">
-          Heat is your life. It drains by itself, and touching an enemy spends more. Sparks on the ground fill it back up.
-          Shots fire at the nearest enemy. Clear every enemy to end the round, then pick one upgrade. Every 5th round you
-          fight the Briar and must take a curse.
+          Hearts take the hits. Heat is the wick, and it burns down on its own. Sparks on the ground fill heat back up.
+          Shots fire at the nearest enemy. Clear every enemy in a room to open its doors. Each dungeon has one treasure
+          room with three pedestals. Stand close to read one, then take only one. The last room is the Briar.
         </p>
         <div class="row">
           <button id="play" class="primary" type="button">Start run</button>
@@ -88,7 +92,7 @@
             />
             <button class="ghost" type="submit">Run</button>
           </div>
-          <p id="seed-help" class="note">The same seed repeats the map and the enemy spawns. How you move, and which upgrades you pick, can still differ.</p>
+          <p id="seed-help" class="note">The same seed repeats the rooms, the coins, and where enemies stand. How you move can still differ.</p>
         </form>
         <fieldset>
           <legend>Blessing</legend>
@@ -97,13 +101,13 @@
         <div id="empty-records" class="note">No runs yet.</div>
         <dl class="records" id="records" hidden></dl>
         <ol id="history" class="history" hidden></ol>
-        <p class="keys">Mouse or keys before the run. Burst spends heat and dashes. Esc pauses. M mutes.</p>
+        <p class="keys">Mouse or keys before the run. Burst spends heat and dashes. Q uses the active item. E takes, opens, or climbs. Esc pauses. M mutes.</p>
       </section>
 
       <section id="panel-steer" class="panel" hidden>
         <p class="kicker">Before the dark</p>
         <h2>How does the flame move?</h2>
-        <p class="lede">Pick one. The other will not move you this run. Shots still fire on their own. Burst stays on Space, click, and the Burst button: a short dash that spends heat and damages enemies it passes through.</p>
+        <p class="lede">Pick one. The other will not move you this run. Shots still fire on their own. Burst stays on Space, click, and the Burst button: a short dash that spends heat. Q uses an active item once you have one. E takes a pedestal, opens a chest, or takes the stair.</p>
         <div class="choices">
           <button id="steer-mouse" class="choice primary" type="button">
             <strong>Mouse</strong>
@@ -116,19 +120,6 @@
         </div>
       </section>
 
-      <section id="panel-level" class="panel wide" hidden>
-        <p class="kicker" id="level-kicker">The wick changes</p>
-        <h2 id="level-title">Choose one</h2>
-        <p class="rarity-key" id="level-rarity">
-          <span class="rarity-common">Common</span> is offered most.
-          <span class="rarity-uncommon">Uncommon</span> less often.
-          <span class="rarity-rare">Rare</span> far less often.
-        </p>
-        <div id="cards" class="cards"></div>
-        <p class="keys" id="level-keys">Press 1, 2, or 3, or click a card.</p>
-        <p class="syn-live" id="level-syn"></p>
-      </section>
-
       <section id="panel-pause" class="panel" hidden>
         <p class="kicker">The run continues</p>
         <h2>Paused</h2>
@@ -137,23 +128,22 @@
           <button id="resume" class="primary" type="button">Resume</button>
           <button id="give-up" class="ghost" type="button">End run</button>
         </div>
-        <p class="keys">Esc resumes. M mutes. Upgrades lists what each pick does.</p>
+        <p class="keys">Esc resumes. M mutes. Stats lists speed, tears, damage, range, shot speed, and luck.</p>
       </section>
 
       <section id="panel-loadout" class="panel" hidden>
         <p class="kicker">This run</p>
-        <h2>Upgrades</h2>
-        <p id="loadout-syn" class="note"></p>
-        <h3>Upgrades</h3>
+        <h2>Stats</h2>
+        <dl class="stats" id="stat-sheet"></dl>
+        <h3>Held</h3>
         <ul id="loadout-ups" class="loadlist"></ul>
-        <h3>Curses</h3>
-        <ul id="loadout-curses" class="loadlist"></ul>
+        <p id="active-line" class="note"></p>
         <button id="loadout-close" class="ghost" type="button">Close</button>
       </section>
 
       <section id="panel-dead" class="panel" hidden aria-live="polite">
         <p class="kicker">Run over</p>
-        <p class="big-score" id="dead-round">Round 1</p>
+        <p class="big-score" id="dead-round">Dungeon 1</p>
         <p class="record" id="dead-record"></p>
         <h2 id="dead-eulogy"></h2>
         <dl class="stats" id="dead-stats"></dl>
@@ -176,6 +166,12 @@
         <p class="lede">This browser didn't provide a canvas. Try a current Chrome, Firefox, or Safari.</p>
       </section>
     </div>
+    <aside id="inspect" hidden>
+      <p id="inspect-kicker"></p>
+      <h2 id="inspect-name"></h2>
+      <p id="inspect-text"></p>
+      <p id="inspect-detail"></p>
+    </aside>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

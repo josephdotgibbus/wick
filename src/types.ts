@@ -1,154 +1,104 @@
-import type { ExtraId } from './upgrade-ids.ts'
+export const TILE = 32
 
 export type Kind = 'wisp' | 'cinder' | 'boss'
 
-export type UpgradeId =
-  | 'kindling'
-  | 'split'
-  | 'moth'
-  | 'orbit'
-  | 'pop'
-  | 'leech'
-  | 'brand'
-  | 'pierce'
-  | 'back'
-  | 'nova'
-  | 'glass'
-  | 'hearth'
-  | 'step'
-  | 'slowburn'
-  | 'halo'
-  | 'coal'
-  | 'lure'
-  | ExtraId
-
-export type CurseId = 'heavy' | 'thin' | 'hungry' | 'brittle' | 'dim' | 'sluggish' | 'swarm' | 'short'
+export type Dir = 'n' | 'e' | 's' | 'w'
 
 export type EventId = 'strong' | 'slip' | 'rubble' | 'haste' | 'starve' | 'fog' | 'vents' | 'surge'
-
-export type OfferId = UpgradeId | CurseId
 
 export type ControlMode = 'mouse' | 'keys'
 
 export type Mode = 'endless' | 'daily' | 'seed'
 
-export type State = 'menu' | 'steer' | 'playing' | 'levelup' | 'paused' | 'dying' | 'dead'
+export type State = 'menu' | 'steer' | 'playing' | 'paused' | 'dying' | 'dead'
 
-export type Ranks = Record<UpgradeId, number>
-export type Curses = Record<CurseId, number>
+export type RoomKind = 'start' | 'combat' | 'treasure' | 'boss'
 
-export interface Mods {
-  shotDamage: number
-  shotSpeed: number
-  shotLife: number
-  pierce: number
-  forks: number
-  forkFrac: number
-  fireInterval: number
-  maxHeat: number
-  decayMult: number
-  magnet: number
+export type PickupKind = 'coin' | 'spark' | 'soul'
+
+export type NearKind = 'pedestal' | 'chest' | 'stair'
+
+/** 0 floor, 1 wall, 2 rock, 3 pit, 4 bramble */
+export type TileId = 0 | 1 | 2 | 3 | 4
+
+export interface Stats {
+  damage: number
+  tears: number
   speed: number
-  touchMult: number
-  light: number
-  burstCd: number
-  burstCost: number
-  sparkValue: number
-  extraSpawns: number
-  homing: number
-  orbit: number
-  orbitDmg: number
-  pop: boolean
-  popFrac: number
-  popCount: number
-  popPatch: boolean
-  brand: boolean
-  brandForks: boolean
-  leech: number
-  back: boolean
-  backFrac: number
-  backSplits: boolean
-  novaEvery: number
-  novaFrac: number
-  haloDps: number
-  haloSlow: number
-  lastCoal: boolean
-  coalRing: boolean
-  collectRing: number
-  coalFrac: number
-  coalMin: number
-  brandFrac: number
-  brandTime: number
-  shotScale: number
-  killSpark: number
-  sparkLife: number
-  burstDmg: number
-  burstRange: number
-  fan: number
-  fanFrac: number
-  regen: number
-  roundHeat: number
-  pickupBonus: number
-  enemyHp: number
-  enemySpeed: number
-  critChance: number
-  critMult: number
-  splash: number
-  splashR: number
-  chain: number
-  chainR: number
-  chainFrac: number
-  killBlast: number
-  killBlastR: number
-  thorns: number
-  executeFrac: number
-  executeMult: number
-  lowHeatDmg: number
-  highHeatDmg: number
-  movingDmg: number
-  stillDmg: number
-  emberDps: number
-  venomDps: number
-  venomTime: number
-  wispMult: number
-  cinderMult: number
-  bossMult: number
-  closeMult: number
-  farMult: number
-  knock: number
-  auraDps: number
-  auraR: number
-  ricochet: number
-  wild: number
-  doubleEvery: number
-  salvage: number
-  salvageValue: number
-  siphon: number
-  shields: number
-  revenge: number
-  panic: number
-  laserMult: number
-  spawnCut: number
-  burstNova: number
-  burstNovaFrac: number
+  range: number
+  shotSpeed: number
+  luck: number
+  /** Current and maximum red health, in half-hearts. */
+  red: number
+  redMax: number
+  /** Soul hearts, in half-hearts. Damage spends these before red hearts. */
+  soul: number
 }
 
-export interface Offer {
-  id: OfferId
-  kind: 'upgrade' | 'curse'
+export interface Active {
+  id: string
   name: string
-  text: string
-  hint: string | null
-  rank: number
-  max: number
-  icon: string
+  description: string
+  charges: number
+  charge: number
+  use: string
 }
 
-export interface Player {
+export interface Door {
+  dir: Dir
+  to: number
+  tx: number
+  ty: number
+}
+
+export interface Pedestal {
   x: number
   y: number
-  vx: number
-  vy: number
+  upgradeId: string | null
+  taken: boolean
+}
+
+export interface Chest {
+  x: number
+  y: number
+  opened: boolean
+  coins: number
+  upgradeId: string | null
+}
+
+export interface Pickup {
+  x: number
+  y: number
+  kind: PickupKind
+  taken: boolean
+}
+
+export interface Spawn {
+  kind: Kind
+  x: number
+  y: number
+}
+
+export interface Room {
+  id: number
+  kind: RoomKind
+  gx: number
+  gy: number
+  w: number
+  h: number
+  tiles: TileId[]
+  doors: Door[]
+  spawns: Spawn[]
+  spawned: boolean
+  coins: Pickup[]
+  chest: Chest | null
+  pedestals: Pedestal[]
+  treasureTaken: boolean
+  clearDrop: Pickup | null
+  dropGiven: boolean
+  cleared: boolean
+  visited: boolean
+  stair: boolean
 }
 
 export interface SpikeSlot {
@@ -157,9 +107,11 @@ export interface SpikeSlot {
   ang: number
 }
 
-export interface Incoming {
-  kind: Kind
-  wait: number
+export interface Player {
+  x: number
+  y: number
+  vx: number
+  vy: number
 }
 
 export interface Enemy {
@@ -174,7 +126,7 @@ export interface Enemy {
   maxHp: number
   r: number
   speed: number
-  touch: number
+  hearts: number
   flash: number
   arrive: number
   dead: boolean
@@ -185,8 +137,6 @@ export interface Enemy {
   didHit: boolean
   eyes: number
   nextEye: number
-  spawnLeft: number
-  spawnAcc: number
   spikes: SpikeSlot[]
   trail: number
   bossRank: number
@@ -200,50 +150,12 @@ export interface Bullet {
   life: number
   max: number
   damage: number
+  hearts: number
   pierce: number
   r: number
   hit: number[]
   friendly: boolean
-  brand: boolean
   child: boolean
-}
-
-export interface Spark {
-  x: number
-  y: number
-  value: number
-  life: number
-  taken: boolean
-}
-
-export interface Obstacle {
-  x: number
-  y: number
-  r: number
-}
-
-export interface Hazard {
-  x: number
-  y: number
-  r: number
-  dps: number
-  kind: 'pit' | 'bramble'
-  tick: number
-}
-
-export interface Chunk {
-  obstacles: Obstacle[]
-  hazards: Hazard[]
-  sparks: Spark[]
-}
-
-export interface Patch {
-  x: number
-  y: number
-  r: number
-  life: number
-  max: number
-  dps: number
 }
 
 export interface Particle {
@@ -318,6 +230,8 @@ export interface FrameInput {
   ax: number
   ay: number
   burst: boolean
+  use: boolean
+  interact: boolean
 }
 
 export interface PendingRun {
@@ -337,20 +251,25 @@ export interface Game {
   runSerial: number
   time: number
   menuT: number
-  round: number
+  dungeon: number
   bestAtStart: number
   heat: number
+  maxHeat: number
+  light: number
+  coins: number
   kills: number
   bossKills: number
-  ranks: Ranks
-  curses: Curses
-  mods: Mods
+  stats: Stats
+  passives: string[]
+  active: Active | null
   blessingId: string
   control: ControlMode
   pending: PendingRun | null
   loadoutOpen: boolean
   event: EventId | null
   slip: boolean
+  rooms: Room[]
+  roomIndex: number
   player: Player
   facing: number
   iframes: number
@@ -358,32 +277,19 @@ export interface Game {
   burstT: number
   burstAng: number
   fireCd: number
-  shotN: number
-  coalSpent: boolean
-  shields: number
-  revenge: boolean
-  orbitAng: number
-  trailCd: number
+  doorHold: number
   brambleCd: number
   enemies: Enemy[]
-  incoming: Incoming[]
   bullets: Bullet[]
-  sparks: Spark[]
-  patches: Patch[]
+  pickups: Pickup[]
   particles: Particle[]
   floaters: Floater[]
   beams: Beam[]
   warnings: Warning[]
-  chunks: Map<string, Chunk>
-  extras: Obstacle[]
-  extraHazards: Hazard[]
   decor: Decor[]
   nextId: number
-  offers: Offer[]
-  offerSerial: number
-  pickLock: number
-  clearT: number
-  gathering: boolean
+  near: NearKind | null
+  nearId: string | null
   banner: Banner | null
   hint: string
   tutor: boolean

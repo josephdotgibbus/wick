@@ -1,22 +1,10 @@
-import {
-  BLESSINGS,
-  CURSES,
-  EVENT_COPY,
-  UPGRADES,
-  blessingById,
-  buildPhrase,
-  effectOf,
-  iconFor,
-  rarityName,
-  roman,
-  upgradeName,
-  upgradeRarity,
-} from './content.ts'
+import { BLESSINGS, blessingById, EVENT_COPY, pedestalCopy, statLines } from './content.ts'
 import { formatTime } from './format.ts'
 import { dailyKey, dailySeed, formatSeed } from './rng.ts'
 import type { Save } from './storage.ts'
 import { todayBest } from './storage.ts'
-import type { CurseId, Game, UpgradeId } from './types.ts'
+import type { Game } from './types.ts'
+import { upgradeById } from './upgrades.ts'
 
 export interface Session {
   fresh: string[]
@@ -31,12 +19,13 @@ export interface Actions {
   again: () => void
   fresh: () => void
   menu: () => void
-  pick: (index: number) => void
   resume: () => void
   giveUp: () => void
   toggleMute: () => void
   blessing: (id: string) => void
   burst: () => void
+  use: () => void
+  interact: () => void
   steer: (mode: 'mouse' | 'keys') => void
   loadout: () => void
 }
@@ -64,6 +53,14 @@ export function mount(actions: Actions): void {
       actions.burst()
     })
   }
+  byId('active').addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    actions.use()
+  })
+  byId('take').addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    actions.interact()
+  })
   const form = byId<HTMLFormElement>('seed-form')
   form.addEventListener('submit', (event) => {
     event.preventDefault()
@@ -79,294 +76,200 @@ export function mount(actions: Actions): void {
 
 let blessSig = ''
 let histSig = ''
-let offerSig = -1
 let deadSig = ''
 let shellState = ''
 let loadSig = ''
+let heartSig = ''
+let inspectSig = ''
 
 export function sync(g: Game, save: Save, session: Session): void {
   const menu = g.state === 'menu'
-  const hudOn = g.state === 'playing' || g.state === 'levelup' || g.state === 'paused' || g.state === 'dying'
+  const hudOn = g.state === 'playing' || g.state === 'paused' || g.state === 'dying'
   show('panel-menu', menu)
   show('panel-steer', g.state === 'steer')
-  show('panel-level', g.state === 'levelup')
   show('panel-pause', g.state === 'paused')
   show('panel-dead', g.state === 'dead')
   show('panel-loadout', g.loadoutOpen && (g.state === 'playing' || g.state === 'paused'))
   show('hud', hudOn)
-  show('banner', !!g.banner && (g.state === 'playing' || g.state === 'dying'))
+  show('banner', !!g.banner && (g.state === 'playing' || g.state === 'dying') && !g.loadoutOpen)
 
   const shell = byId('shell')
-  const overlay = g.state === 'levelup' || g.state === 'paused' || g.state === 'dead' || g.state === 'steer'
-  shell.classList.toggle('overlay', overlay)
-  shell.classList.toggle('draft', g.state === 'levelup')
-  if (g.state !== shellState) {
-    shellState = g.state
-    shell.scrollTop = 0
+  const overlay = g.state === 'paused' || g.state === 'dead' || g.state === 'steer'
+  if (shellState !== `${g.state}:${overlay}`) {
+    shellState = `${g.state}:${overlay}`
+    shell.classList.toggle('overlay', overlay)
   }
-  if (g.state === 'levelup' || g.state === 'paused') shell.scrollTop = 0
-  byId('hud').classList.toggle('quiet', g.state === 'levelup' || g.state === 'paused')
-  byId('pause-btn').hidden = g.state !== 'playing'
-  byId('loadout-btn').hidden = g.state !== 'playing' && g.state !== 'paused'
+  const hud = byId('hud')
+  hud.classList.toggle('quiet', g.state !== 'playing')
+  hud.classList.toggle('sheet', g.loadoutOpen)
 
   const mute = byId('mute')
-  mute.textContent = save.muted ? 'Muted' : 'Sound'
+  mute.textContent = save.muted ? 'Sound off' : 'Sound'
   mute.setAttribute('aria-pressed', save.muted ? 'true' : 'false')
 
-  if (menu) syncMenu(save)
-  if (g.state === 'steer') {
-    byId('steer-mouse').classList.toggle('primary', save.control !== 'keys')
-    byId('steer-keys').classList.toggle('primary', save.control === 'keys')
-  }
-  if (hudOn) syncHud(g, save)
-  if (g.banner && (g.state === 'playing' || g.state === 'dying')) {
-    const title = byId('banner-title')
-    if (title.textContent !== g.banner.title) {
-      title.textContent = g.banner.title
-      title.style.animation = 'none'
-      void title.offsetWidth
-      title.style.animation = ''
-    }
-    setText('banner-sub', g.banner.sub)
-  }
-  if (g.state === 'levelup') syncLevel(g)
-  if (g.state === 'paused') setText('pause-build', buildPhrase(g.ranks, g.curses))
-  if (g.loadoutOpen) syncLoadout(g)
-  if (g.state === 'dead') syncDead(g, session)
+  if (menu) paintMenu(g, save, session)
+  if (hudOn) paintHud(g)
+  if (g.state === 'paused') byId('pause-build').textContent = pauseLine(g)
+  if (g.loadoutOpen) paintStats(g)
+  if (g.state === 'dead') paintDead(g, save, session)
+  paintInspect(g)
 }
 
-function syncMenu(save: Save): void {
+function paintMenu(g: Game, save: Save, session: Session): void {
   const day = dailyKey()
-  const label = formatSeed(dailySeed())
   const best = todayBest(save, day)
-  setText('daily-note', best > 0 ? `Today ${label} · round ${best}` : `Today’s seed · ${label}`)
-  const sig = `${save.unlocks.join(',')}|${save.blessing}`
+  byId('daily-note').textContent = best > 0 ? `Today’s best is dungeon ${best}.` : `Today’s seed is ${formatSeed(dailySeed())}.`
+  const marks = { round: save.bestRound, time: save.bestTime, bosses: save.bosses }
+  const sig = `${save.unlocks.join()}|${save.blessing}|${save.bestRound}`
   if (sig !== blessSig) {
     blessSig = sig
-    paintBlessings(save)
-  }
-  const empty = byId('empty-records')
-  const records = byId('records')
-  const history = byId('history')
-  if (save.runs <= 0) {
-    empty.hidden = false
-    records.hidden = true
-    history.hidden = true
-    return
-  }
-  empty.hidden = true
-  records.hidden = false
-  const recSig = `${save.bestRound}|${save.bestTime}|${save.bosses}|${save.runs}`
-  if (recSig !== histSig.split('~')[0]) {
-    fillRecords(records, [
-      ['Deepest', `Round ${save.bestRound}`],
-      ['Longest', formatTime(save.bestTime)],
-      ['Bosses', String(save.bosses)],
-      ['Runs', String(save.runs)],
-    ])
-  }
-  const hsig = `${recSig}~${save.history.map((h) => `${h.seed}:${h.round}:${h.time}`).join('|')}`
-  if (hsig !== histSig) {
-    histSig = hsig
-    history.hidden = save.history.length === 0
-    history.replaceChildren()
-    for (const h of save.history) {
-      const li = document.createElement('li')
-      li.textContent = `Round ${h.round} · ${formatTime(h.time)} · ${h.seed}`
-      history.append(li)
+    const box = byId('blessings')
+    box.replaceChildren()
+    for (const blessing of BLESSINGS) {
+      const open = blessing.id === 'bare' || save.unlocks.includes(blessing.id)
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'bless'
+      button.disabled = !open
+      button.setAttribute('aria-pressed', save.blessing === blessing.id ? 'true' : 'false')
+      const name = document.createElement('strong')
+      name.textContent = open ? blessing.name : 'Locked'
+      const desc = document.createElement('span')
+      desc.textContent = open ? blessing.desc : blessing.need
+      button.append(name, desc)
+      button.addEventListener('click', () => bound?.blessing(blessing.id))
+      box.append(button)
     }
   }
-}
-
-function paintBlessings(save: Save): void {
-  const root = byId('blessings')
-  root.replaceChildren()
-  for (const blessing of BLESSINGS) {
-    const locked = blessing.id !== 'bare' && !save.unlocks.includes(blessing.id)
-    const label = document.createElement('label')
-    label.className = locked ? 'bless locked' : 'bless'
-    const input = document.createElement('input')
-    input.type = 'radio'
-    input.name = 'blessing'
-    input.value = blessing.id
-    input.checked = save.blessing === blessing.id
-    input.disabled = locked
-    input.addEventListener('change', () => {
-      if (input.checked) bound?.blessing(blessing.id)
-    })
-    const name = document.createElement('strong')
-    name.textContent = blessing.name
-    const desc = document.createElement('span')
-    desc.textContent = locked ? blessing.need : blessing.desc
-    label.append(input, name, desc)
-    root.append(label)
+  const records = byId('records')
+  const empty = byId('empty-records')
+  if (save.runs === 0) {
+    records.hidden = true
+    empty.hidden = false
+  } else {
+    records.hidden = false
+    empty.hidden = true
+    records.replaceChildren()
+    addRecord(records, 'Best dungeon', String(save.bestRound))
+    addRecord(records, 'Longest run', formatTime(save.bestTime))
+    addRecord(records, 'Bosses', String(save.bosses))
   }
+  const hist = byId('history')
+  const histKey = save.history.map((h) => `${h.round}:${h.time}:${h.seed}`).join('|')
+  if (histKey !== histSig) {
+    histSig = histKey
+    hist.replaceChildren()
+    hist.hidden = save.history.length === 0
+    for (const entry of save.history) {
+      const li = document.createElement('li')
+      li.textContent = `Dungeon ${entry.round} · ${formatTime(entry.time)} · ${entry.seed}`
+      hist.append(li)
+    }
+  }
+  void g
+  void session
+  void marks
 }
 
-function syncHud(g: Game, save: Save): void {
-  const heat = g.mods.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.mods.maxHeat
+function paintHud(g: Game): void {
   const fill = byId('heat-fill')
-  fill.style.width = `${Math.round(heat * 100)}%`
-  fill.style.background = heatColor(heat)
-  const left = g.enemies.filter((e) => !e.dead).length + g.incoming.length
-  setText('hint', g.hint)
-  setText('clock', formatTime(g.time))
-  setText('seed-mini', g.seedLabel)
-  setText('round-label', `Round ${g.round}`)
-  setText('foes', left === 1 ? '1 enemy left' : `${left} enemies left`)
+  const ratio = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
+  fill.style.width = `${ratio * 100}%`
+  byId('heat').classList.toggle('desperate', ratio < 0.25)
+  byId('heat-label').textContent = g.heat < 25 ? 'Heat · almost out' : 'Heat · the wick'
+  byId('round-label').textContent = `Dungeon ${g.dungeon}`
+  const here = g.rooms[g.roomIndex]
+  const foes = g.enemies.filter((e) => !e.dead).length
+  byId('foes').textContent = here?.cleared ? 'Room clear' : foes ? `${foes} still in the room` : 'Doors open'
+  byId('clock').textContent = formatTime(g.time)
+  byId('seed-mini').textContent = g.seedLabel
+  byId('hint').textContent = g.hint
+  byId('coins').textContent = g.coins === 1 ? '1 coin' : `${g.coins} coins`
+  const heartKey = `${g.stats.red}:${g.stats.redMax}:${g.stats.soul}`
+  if (heartKey !== heartSig) {
+    heartSig = heartKey
+    const box = byId('hearts')
+    box.replaceChildren()
+    const containers = Math.ceil(g.stats.redMax / 2)
+    for (let i = 0; i < containers; i++) {
+      const have = g.stats.red - i * 2
+      const heart = document.createElement('i')
+      heart.className = have >= 2 ? 'heart full' : have === 1 ? 'heart half' : 'heart empty'
+      box.append(heart)
+    }
+    const souls = Math.ceil(g.stats.soul / 2)
+    for (let i = 0; i < souls; i++) {
+      const have = g.stats.soul - i * 2
+      const heart = document.createElement('i')
+      heart.className = have >= 2 ? 'heart soul' : 'heart soul half'
+      box.append(heart)
+    }
+  }
+  const active = byId('active')
+  active.innerHTML = g.active
+    ? `${escape(g.active.name)}<small>${g.active.charge}/${g.active.charges}</small>`
+    : 'Active<small>Empty</small>'
+  const take = byId('take')
+  const label = g.near === 'chest' ? 'Open' : g.near === 'stair' ? 'Descend' : 'Take'
+  take.hidden = g.near === null || g.state !== 'playing'
+  take.innerHTML = `${label}<small>E</small>`
   const boss = g.enemies.find((e) => e.kind === 'boss' && !e.dead)
   const bar = byId('boss')
   bar.hidden = !boss
   if (boss) {
-    setText('boss-name', boss.name)
-    byId('boss-fill').style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`
+    byId('boss-name').textContent = boss.name
+    byId('boss-fill').style.width = `${Math.max(0, boss.hp / boss.maxHp) * 100}%`
   }
   const event = byId('event-line')
   event.hidden = !g.event
-  if (g.event) setText('event-line', EVENT_COPY[g.event].title)
-  paintGlyphs(g)
-  void save
+  event.textContent = g.event ? EVENT_COPY[g.event].title : ''
+  if (g.banner) {
+    byId('banner-title').textContent = g.banner.title
+    byId('banner-sub').textContent = g.banner.sub
+  }
 }
 
-function paintGlyphs(g: Game): void {
-  const sig = glyphSig(g)
+function paintStats(g: Game): void {
+  const sig = `${g.stats.damage}:${g.stats.tears}:${g.stats.speed}:${g.passives.join()}|${g.active?.id ?? ''}:${g.active?.charge ?? 0}`
   if (sig === loadSig) return
   loadSig = sig
-  const row = byId('glyph-row')
-  row.replaceChildren()
-  for (const id of UPGRADES) {
-    if (g.ranks[id] <= 0) continue
-    row.append(glyph(id, roman(g.ranks[id]), false, upgradeRarity(id)))
+  const sheet = byId('stat-sheet')
+  sheet.replaceChildren()
+  for (const line of statLines(g.stats)) addRecord(sheet, line.label, line.value)
+  addRecord(sheet, 'Red hearts', heartText(g.stats.red, g.stats.redMax))
+  addRecord(sheet, 'Soul hearts', heartText(g.stats.soul, g.stats.soul))
+  const list = byId('loadout-ups')
+  list.replaceChildren()
+  if (!g.passives.length && !g.active) {
+    const li = document.createElement('li')
+    li.textContent = 'No upgrades yet. Treasure pedestals stay bare until you add some in src/upgrades.ts.'
+    list.append(li)
   }
-  for (const id of CURSES) {
-    if (g.curses[id] <= 0) continue
-    row.append(glyph(id, roman(g.curses[id]), true))
+  for (const id of g.passives) {
+    const def = upgradeById(id)
+    const li = document.createElement('li')
+    li.textContent = def ? `${def.name}. ${def.description}` : id
+    list.append(li)
   }
+  byId('active-line').textContent = g.active
+    ? `Active: ${g.active.name}. ${g.active.description} Charge ${g.active.charge}/${g.active.charges}.`
+    : 'Active slot is empty.'
 }
 
-function glyph(id: string, rank: string, curse = false, rarity = ''): HTMLElement {
-  const fig = document.createElement('figure')
-  fig.className = curse ? 'glyph curse' : `glyph rarity-${rarity}`
-  const img = document.createElement('img')
-  img.alt = ''
-  img.src = iconFor(id)
-  const cap = document.createElement('figcaption')
-  cap.textContent = rank
-  fig.append(img, cap)
-  fig.title = `${upgradeName(id as UpgradeId)} ${rank}`
-  return fig
-}
-
-function glyphSig(g: Game): string {
-  return UPGRADES.map((id) => g.ranks[id]).join(',') + '|' + CURSES.map((id) => g.curses[id]).join(',')
-}
-
-function syncLevel(g: Game): void {
-  const curse = g.offers[0]?.kind === 'curse'
-  setText('level-kicker', curse ? 'A penalty you must take' : 'One upgrade')
-  setText('level-title', curse ? 'Take a curse' : 'Choose one')
-  byId('level-rarity').hidden = curse
-  if (g.offerSerial === offerSig) return
-  offerSig = g.offerSerial
-  const cards = byId('cards')
-  cards.replaceChildren()
-  g.offers.forEach((offer, index) => {
-    const button = document.createElement('button')
-    button.type = 'button'
-    const img = document.createElement('img')
-    img.alt = ''
-    img.src = offer.icon
-    const rarity = document.createElement('span')
-    const taken = offer.max <= 1 ? 'Only once' : `Rank ${roman(offer.rank)} of ${roman(offer.max)}`
-    if (offer.kind === 'curse') {
-      button.className = 'card curse'
-      rarity.className = 'rarity rarity-curse'
-      rarity.textContent = `Curse · ${taken}`
-    } else {
-      const tier = upgradeRarity(offer.id as UpgradeId)
-      button.className = `card rarity-${tier}`
-      rarity.className = `rarity rarity-${tier}`
-      rarity.textContent = `${rarityName(tier)} · ${taken}`
-    }
-    const name = document.createElement('strong')
-    name.textContent = offer.name
-    const text = document.createElement('p')
-    text.textContent = offer.text
-    button.append(img, rarity, name, text)
-    if (offer.hint) {
-      const hint = document.createElement('em')
-      hint.textContent = offer.hint
-      button.append(hint)
-    }
-    button.addEventListener('click', () => bound?.pick(index))
-    const slot = document.createElement('div')
-    slot.className = 'card-slot'
-    slot.style.setProperty('--i', String(index))
-    slot.append(button)
-    cards.append(slot)
-  })
-  setText('level-syn', '')
-}
-
-function syncLoadout(g: Game): void {
-  const ups = byId('loadout-ups')
-  const downs = byId('loadout-curses')
-  ups.replaceChildren()
-  downs.replaceChildren()
-  const owned = UPGRADES.filter((id) => g.ranks[id] > 0)
-  const cursed = CURSES.filter((id) => g.curses[id] > 0)
-  if (owned.length === 0) ups.append(emptyLine('No upgrades yet.'))
-  for (const id of owned) ups.append(row(id, g.ranks[id]))
-  if (cursed.length === 0) downs.append(emptyLine('No curses yet.'))
-  for (const id of cursed) downs.append(row(id, g.curses[id], true))
-  setText('loadout-syn', '')
-}
-
-function row(id: UpgradeId | CurseId, rank: number, curse = false): HTMLElement {
-  const li = document.createElement('li')
-  li.className = curse ? 'curse' : ''
-  const img = document.createElement('img')
-  img.alt = ''
-  img.src = iconFor(id)
-  const name = document.createElement('span')
-  const title = document.createElement('strong')
-  if (curse) {
-    title.className = 'rarity-curse'
-    title.textContent = `${upgradeName(id)} ${roman(rank)}`
-  } else {
-    const tier = upgradeRarity(id as UpgradeId)
-    title.className = `rarity-${tier}`
-    title.textContent = `${rarityName(tier)} · ${upgradeName(id)} ${roman(rank)}`
-  }
-  const detail = document.createElement('small')
-  detail.textContent = effectOf(id, rank)
-  name.append(title, detail)
-  li.append(img, name)
-  return li
-}
-
-function emptyLine(text: string): HTMLElement {
-  const li = document.createElement('li')
-  li.className = 'empty'
-  li.textContent = text
-  return li
-}
-
-function syncDead(g: Game, session: Session): void {
-  const sig = `${g.runSerial}|${session.record}|${session.fresh.join(',')}`
+function paintDead(g: Game, save: Save, session: Session): void {
+  const sig = `${g.runSerial}:${g.dungeon}:${session.record}`
   if (sig === deadSig) return
   deadSig = sig
-  setText('dead-round', `Round ${g.round}`)
-  const record = byId('dead-record')
-  record.textContent = session.record ? 'Deepest yet.' : session.dailyRecord ? 'Best daily.' : ''
-  setText('dead-eulogy', g.eulogy)
-  fillRecords(byId('dead-stats'), [
-    ['Round', String(g.round)],
-    ['Time', formatTime(g.time)],
-    ['Bosses', String(g.bossKills)],
-    ['Slain', String(g.kills)],
-  ])
-  setText('dead-build', buildPhrase(g.ranks, g.curses))
+  byId('dead-round').textContent = `Dungeon ${g.dungeon}`
+  byId('dead-eulogy').textContent = g.eulogy
+  byId('dead-record').textContent = session.record ? 'New best dungeon.' : `Best is dungeon ${save.bestRound}.`
+  const stats = byId('dead-stats')
+  stats.replaceChildren()
+  addRecord(stats, 'Time', formatTime(g.time))
+  addRecord(stats, 'Enemies', String(g.kills))
+  addRecord(stats, 'Coins', String(g.coins))
+  addRecord(stats, 'Bosses', String(g.bossKills))
+  byId('dead-build').textContent = pauseLine(g)
   const unlocks = byId('dead-unlocks')
   unlocks.textContent = session.fresh.length
     ? `Unlocked ${session.fresh.map((id) => blessingById(id)?.name ?? id).join(', ')}.`
@@ -374,57 +277,75 @@ function syncDead(g: Game, session: Session): void {
   byId<HTMLInputElement>('dead-seed').value = g.seedLabel
 }
 
-function fillRecords(dl: HTMLElement, rows: [string, string][]): void {
-  dl.replaceChildren()
-  for (const [k, v] of rows) {
-    const dt = document.createElement('dt')
-    dt.textContent = k
-    const dd = document.createElement('dd')
-    dd.textContent = v
-    dl.append(dt, dd)
-  }
+function paintInspect(g: Game): void {
+  const panel = byId('inspect')
+  const showPanel = g.state === 'playing' && g.near === 'pedestal'
+  const here = g.rooms[g.roomIndex]
+  const pedestal = here?.pedestals.find((item) => item.upgradeId === g.nearId) ?? here?.pedestals[0]
+  const def = g.nearId ? upgradeById(g.nearId) : undefined
+  const copy = pedestal?.upgradeId ? pedestalCopy(def) : pedestalCopy(undefined)
+  const note = !def
+    ? 'The shelf is empty until you add an upgrade in src/upgrades.ts.'
+    : here?.treasureTaken
+      ? 'You already took one.'
+      : def.kind === 'active'
+        ? 'E puts this in the active slot and locks the other two.'
+        : 'E takes this and locks the other two.'
+  const sig = `${showPanel}:${copy.name}:${note}:${g.nearId ?? ''}`
+  panel.hidden = !showPanel
+  if (!showPanel || sig === inspectSig) return
+  inspectSig = sig
+  byId('inspect-kicker').textContent = def?.kind === 'active' ? 'Active item' : 'Pedestal'
+  byId('inspect-name').textContent = copy.name
+  byId('inspect-text').textContent = copy.text
+  byId('inspect-detail').textContent = [copy.detail, note].filter(Boolean).join(' ')
 }
 
-function heatColor(p: number): string {
-  if (p < 0.28) return '#7eb6d4'
-  if (p < 0.55) return '#e7a14a'
-  if (p < 0.85) return '#ff6a2c'
-  return '#fff1d2'
+function pauseLine(g: Game): string {
+  const blessing = blessingById(g.blessingId)
+  const held = g.passives.length ? `${g.passives.length} passive` : 'no passives'
+  const active = g.active ? g.active.name : 'no active item'
+  return `${blessing?.name ?? 'None'} blessing. ${held}. ${active}. ${g.coins} coins.`
 }
 
-async function copySeed(): Promise<void> {
-  const input = byId<HTMLInputElement>('dead-seed')
-  const button = byId('copy-seed')
-  try {
-    await navigator.clipboard.writeText(input.value)
-    button.textContent = 'Copied'
-  } catch {
-    input.focus()
-    input.select()
-    button.textContent = 'Select'
-  }
-  window.setTimeout(() => {
-    button.textContent = 'Copy'
-  }, 1200)
+function heartText(current: number, max: number): string {
+  if (max <= 0) return '0'
+  return `${(current / 2).toFixed(1).replace('.0', '')} / ${(max / 2).toFixed(1).replace('.0', '')}`
+}
+
+function addRecord(dl: HTMLElement, label: string, value: string): void {
+  const dt = document.createElement('dt')
+  dt.textContent = label
+  const dd = document.createElement('dd')
+  dd.textContent = value
+  dl.append(dt, dd)
+}
+
+function escape(text: string): string {
+  return text.replace(/[&<>]/g, (ch) => (ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : '&gt;'))
 }
 
 function show(id: string, on: boolean): void {
   byId(id).hidden = !on
 }
 
-function setText(id: string, text: string): void {
-  const el = byId(id)
-  if (el.textContent !== text) el.textContent = text
-}
-
-function byId<T extends HTMLElement = HTMLElement>(id: string): T {
-  const el = document.getElementById(id)
-  if (!el) throw new Error(`Missing #${id}`)
-  return el as T
-}
-
 export function showError(): void {
-  show('panel-menu', false)
-  show('panel-error', true)
-  byId('shell').classList.add('overlay')
+  const panel = document.getElementById('panel-error')
+  if (panel) panel.hidden = false
+}
+
+function byId<T extends HTMLElement>(id: string): T {
+  const node = document.getElementById(id)
+  if (!node) throw new Error(`Missing #${id}`)
+  return node as T
+}
+
+async function copySeed(): Promise<void> {
+  const input = byId<HTMLInputElement>('dead-seed')
+  input.select()
+  try {
+    await navigator.clipboard.writeText(input.value)
+  } catch {
+    document.execCommand('copy')
+  }
 }
