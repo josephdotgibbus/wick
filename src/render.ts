@@ -562,11 +562,52 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
 function drawFlame(ctx: CanvasRenderingContext2D, g: Game, wall: number, x: number, y: number): void {
   const heat = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   let scale = 14 + heat * 8
+  let catchU = 0
+  if (g.rekindle > 0 && g.rekindleMax > 0) {
+    catchU = 1 - g.rekindle / g.rekindleMax
+    scale *= 1 + Math.sin(Math.min(1, catchU) * Math.PI) * 0.72
+  }
   if (g.state === 'dying' || g.state === 'dead') scale *= Math.max(0, g.snuff)
   if (scale < 0.5) return
-  if (g.iframes > 0 && Math.sin(wall * 42) > 0.2) ctx.globalAlpha = 0.55
+  if (g.iframes > 0 && Math.sin(wall * 42) > 0.2 && catchU <= 0) ctx.globalAlpha = 0.55
+  if (catchU > 0) drawCatch(ctx, x, y, catchU)
   flame(ctx, x, y, scale, wall)
+  if (catchU > 0) {
+    const swell = Math.sin(Math.min(1, catchU) * Math.PI)
+    ctx.save()
+    ctx.globalAlpha = 0.35 + swell * 0.55
+    ctx.fillStyle = '#fffaf2'
+    ctx.beginPath()
+    ctx.ellipse(x, y - scale * 0.45, scale * 0.2, scale * 0.62, 0, 0, TAU)
+    ctx.fill()
+    ctx.restore()
+  }
   ctx.globalAlpha = 1
+}
+
+function drawCatch(ctx: CanvasRenderingContext2D, x: number, y: number, u: number): void {
+  const fade = 1 - u
+  const flash = Math.max(0, 1 - u * 1.35)
+  if (flash > 0) {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 86)
+    glow.addColorStop(0, `rgba(255, 250, 240, ${0.55 * flash})`)
+    glow.addColorStop(0.45, `rgba(255, 170, 60, ${0.28 * flash})`)
+    glow.addColorStop(1, 'rgba(255, 120, 30, 0)')
+    ctx.fillStyle = glow
+    ctx.beginPath()
+    ctx.arc(x, y, 86, 0, TAU)
+    ctx.fill()
+  }
+  ctx.beginPath()
+  ctx.arc(x, y, 16 + u * 108, 0, TAU)
+  ctx.strokeStyle = `rgba(255, 214, 150, ${0.72 * fade})`
+  ctx.lineWidth = 3
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(x, y - 4, 8 + u * 52, 0, TAU)
+  ctx.strokeStyle = `rgba(255, 250, 236, ${0.5 * fade})`
+  ctx.lineWidth = 1.6
+  ctx.stroke()
 }
 
 function flame(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number): void {

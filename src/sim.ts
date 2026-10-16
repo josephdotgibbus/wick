@@ -41,6 +41,8 @@ export function createGame(): Game {
     bestAtStart: 0,
     heat: 100,
     maxHeat: 100,
+    rekindle: 0,
+    rekindleMax: 0,
     light: 168,
     coins: 0,
     kills: 0,
@@ -201,6 +203,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
 
   if (g.slide) {
     stepSlide(g, dt)
+    stepRekindle(g, dt)
     stepCosmetics(g, dt)
     return
   }
@@ -219,7 +222,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
   stepPlayer(g, input, dt)
   stepHazards(g, dt)
   stepPickups(g, dt)
-  starve(g, dt)
+  if (g.rekindle <= 0) starve(g, dt)
   if (g.state !== 'playing') {
     stepCosmetics(g, dt)
     return
@@ -233,6 +236,8 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
   resolveDeaths(g)
   watchClear(g)
   tryDoor(g)
+  stepRekindle(g, dt)
+  g.light = lightOf(g.heat, g.maxHeat, g.event === 'fog' ? 160 : 240)
   stepCosmetics(g, dt)
 }
 
@@ -242,6 +247,8 @@ function beginDungeon(g: Game, stair: boolean): void {
   g.event = plan.event
   g.roomIndex = 0
   g.slide = null
+  g.rekindle = 0
+  g.rekindleMax = 0
   g.enemies = []
   g.bullets = []
   g.beams = []
@@ -483,6 +490,8 @@ function interact(g: Game): void {
     return
   }
   if (here.stair && Math.hypot(center(here).x - g.player.x, center(here).y + 70 - g.player.y) < 42) {
+    if (g.rekindle > 0) g.heat = g.maxHeat
+    g.rekindle = 0
     g.dungeon += 1
     beginDungeon(g, true)
   }
@@ -840,6 +849,7 @@ function resolveDeaths(g: Game): void {
       g.events.push({ type: 'bossdead' })
       g.shake = 10
       puff(g, e.x, e.y, 'rgba(255,220,180,0.9)', 16, 110, 0.45, 3)
+      beginRekindle(g, e.x, e.y)
     } else {
       room(g).coins.push({ x: e.x, y: e.y, vx: 0, vy: 0, kind: 'spark', taken: false })
       puff(g, e.x, e.y, e.kind === 'cinder' ? 'rgba(255,80,50,0.8)' : 'rgba(40,32,34,0.9)', 6, 50, 0.35, 2)
@@ -1107,6 +1117,93 @@ function nearest(g: Game, x: number, y: number, range: number): Enemy | null {
     }
   }
   return best
+}
+
+const REKINDLE = 1.2
+
+function beginRekindle(g: Game, x: number, y: number): void {
+  g.rekindle = REKINDLE
+  g.rekindleMax = REKINDLE
+  g.floaters.push({
+    x: g.player.x,
+    y: g.player.y - 64,
+    vy: -10,
+    text: 'Heat restored',
+    life: 1.35,
+    max: 1.35,
+    color: '#fff6e4',
+  })
+  pourEmbers(g, x, y)
+  for (let i = 0; i < 18; i++) {
+    const ang = (i / 18) * TAU
+    g.particles.push({
+      x: g.player.x,
+      y: g.player.y,
+      vx: Math.cos(ang) * 150,
+      vy: Math.sin(ang) * 150,
+      life: 0.48,
+      max: 0.48,
+      size: 2.1,
+      color: 'rgba(255, 236, 206, 0.9)',
+      grav: 0,
+    })
+  }
+}
+
+function pourEmbers(g: Game, x: number, y: number): void {
+  for (let i = 0; i < 28; i++) {
+    const ang = (i / 28) * TAU + g.rng() * 0.2
+    const jitter = 6 + g.rng() * 18
+    const px = x + Math.cos(ang) * jitter
+    const py = y + Math.sin(ang) * jitter
+    const dx = g.player.x - px
+    const dy = g.player.y - py
+    const dist = Math.hypot(dx, dy) || 1
+    const speed = dist / (0.42 + g.rng() * 0.38)
+    const side = (i % 2 === 0 ? 1 : -1) * (36 + g.rng() * 54)
+    g.particles.push({
+      x: px,
+      y: py,
+      vx: (dx / dist) * speed + (-dy / dist) * side * 0.45,
+      vy: (dy / dist) * speed + (dx / dist) * side * 0.45,
+      life: 0.95,
+      max: 0.95,
+      size: i % 4 === 0 ? 2.8 : 1.5,
+      color: i % 3 === 0 ? 'rgba(255, 250, 236, 0.96)' : 'rgba(255, 168, 64, 0.92)',
+      grav: 0,
+    })
+  }
+}
+
+function stepRekindle(g: Game, dt: number): void {
+  if (g.rekindle <= 0) return
+  if (g.state !== 'playing') {
+    g.rekindle = 0
+    return
+  }
+  const prev = g.rekindle
+  g.rekindle = Math.max(0, g.rekindle - dt)
+  const gap = g.maxHeat - g.heat
+  if (gap > 0) {
+    const portion = Math.min(1, dt / Math.max(dt, prev))
+    const surge = 1.15 + 0.9 * (1 - prev / Math.max(0.001, g.rekindleMax))
+    g.heat = Math.min(g.maxHeat, g.heat + gap * portion * surge)
+  }
+  if (g.rekindle <= 0) g.heat = g.maxHeat
+  if (g.rng() < dt * 22) {
+    const ang = g.rng() * TAU
+    g.particles.push({
+      x: g.player.x + Math.cos(ang) * (4 + g.rng() * 8),
+      y: g.player.y - 6,
+      vx: Math.cos(ang) * 14,
+      vy: -48 - g.rng() * 46,
+      life: 0.55,
+      max: 0.55,
+      size: 1.45,
+      color: 'rgba(255, 246, 226, 0.95)',
+      grav: 0,
+    })
+  }
 }
 
 function stepCosmetics(g: Game, dt: number): void {

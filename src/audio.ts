@@ -116,7 +116,9 @@ export class Sound {
 
   bossdead(): void {
     this.tone(330, 0.12, 'sine', 0.05)
-    window.setTimeout(() => this.tone(494, 0.18, 'sine', 0.05), 100)
+    window.setTimeout(() => this.tone(494, 0.18, 'sine', 0.05), 90)
+    window.setTimeout(() => this.tone(659, 0.26, 'sine', 0.04), 200)
+    window.setTimeout(() => this.tone(880, 0.4, 'triangle', 0.03), 340)
   }
 
   beam(): void {

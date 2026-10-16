@@ -269,6 +269,9 @@ export interface Game {
   bestAtStart: number
   heat: number
   maxHeat: number
+  /** Seconds left in the boss-kill heat refill. */
+  rekindle: number
+  rekindleMax: number
   light: number
   coins: number
   kills: number

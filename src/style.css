@@ -117,6 +117,23 @@ input { user-select: text; }
   animation: pulse 0.7s ease-in-out infinite;
 }
 
+.heat.rekindle {
+  border-color: rgba(255, 214, 150, 0.95);
+  box-shadow: 0 0 18px rgba(255, 170, 70, 0.7);
+}
+
+.heat.rekindle .heat-fill {
+  background: linear-gradient(90deg, #ff7a32, #fff6e4 46%, #ffb15a);
+  background-size: 220% 100%;
+  animation: catch 0.55s linear infinite;
+  box-shadow: 0 0 16px rgba(255, 228, 186, 0.95);
+}
+
+@keyframes catch {
+  from { background-position: 100% 0; }
+  to { background-position: -40% 0; }
+}
+
 .heatmeta {
   display: flex;
   flex-wrap: wrap;

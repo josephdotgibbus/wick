@@ -33,7 +33,7 @@ A blessing can raise speed, damage, luck, or your max heat before the run. Reach
 
 Wisps are small and red-eyed. Red enemies stop, draw a warning line, then fire a beam. Rocks and walls block the way. Pits drain heat. Bramble spends heat. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one. Enemies fade in and stay off the door you just walked through.
 
-The Briar's spikes sit in its body and spin with it. They slow, swing out to a firing angle, and only then fly across the room.
+The Briar's spikes sit in its body and spin with it. They slow, swing out to a firing angle, and only then fly across the room. When it falls, its heat rushes into the wick and fills you back to the top.
 
 Coins and chests slide, bounce off walls, and pass through enemies. A coin glints while it sits, and picking one up throws a shine. Sparks are small embers. Walk close and they drag in. A chest is uncommon in a combat room, and one appears after the Briar. Opening it spills a few coins and, rarely, a free upgrade once any exist.
 

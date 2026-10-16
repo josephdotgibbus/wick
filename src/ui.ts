@@ -175,8 +175,9 @@ function paintHud(g: Game): void {
   const fill = byId('heat-fill')
   const ratio = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   fill.style.width = `${ratio * 100}%`
-  byId('heat').classList.toggle('desperate', ratio < 0.25)
-  byId('heat-label').textContent = g.heat < 25 ? 'Heat · almost out' : 'Heat · life'
+  byId('heat').classList.toggle('desperate', ratio < 0.25 && g.rekindle <= 0)
+  byId('heat').classList.toggle('rekindle', g.rekindle > 0)
+  byId('heat-label').textContent = g.rekindle > 0 ? 'Heat · catching' : g.heat < 25 ? 'Heat · almost out' : 'Heat · life'
   byId('round-label').textContent = `Dungeon ${g.dungeon}`
   const here = g.rooms[g.roomIndex]
   const foes = g.enemies.filter((e) => !e.dead).length
