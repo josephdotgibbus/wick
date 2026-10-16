@@ -12,6 +12,7 @@ export function baseStats(): Stats {
     range: 6.5,
     shotSpeed: 1,
     luck: 0,
+    magnet: 0,
   }
 }
 
@@ -33,6 +34,7 @@ export function applyUpgrade(stats: Stats, def: UpgradeDef): void {
   if (def.range) stats.range += def.range
   if (def.shotSpeed) stats.shotSpeed += def.shotSpeed
   if (def.luck) stats.luck += def.luck
+  if (def.magnet) stats.magnet += def.magnet
   stats.damage = Math.max(0.5, stats.damage)
   stats.tears = Math.max(0.5, Math.min(15, stats.tears))
   stats.speed = Math.max(0.4, Math.min(2, stats.speed))
@@ -49,6 +51,7 @@ export function statLines(stats: Stats): { label: string; value: string }[] {
     { label: 'Range', value: num(stats.range) },
     { label: 'Shot speed', value: num(stats.shotSpeed) },
     { label: 'Luck', value: num(stats.luck) },
+    { label: 'Magnet', value: `${Math.round(28 + stats.magnet)}` },
   ]
 }
 

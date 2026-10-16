@@ -1,5 +1,5 @@
 import { applyBlessing, applyUpgrade, baseStats, eulogyFor, EVENT_COPY, heatBonus, lightOf } from './content.ts'
-import { buildFloor, doorCenter } from './dungeon.ts'
+import { buildFloor, entryOf } from './dungeon.ts'
 import { formatSeed, mulberry32 } from './rng.ts'
 import type {
   Active,
@@ -10,10 +10,11 @@ import type {
   Game,
   Kind,
   Mode,
+  Pickup,
   Room,
   SpikeSlot,
 } from './types.ts'
-import { TILE } from './types.ts'
+import { SLIDE_TIME, TILE } from './types.ts'
 import { UPGRADES, upgradeById, type UpgradeDef } from './upgrades.ts'
 
 const TAU = Math.PI * 2
@@ -55,6 +56,7 @@ export function createGame(): Game {
     slip: false,
     rooms: [],
     roomIndex: 0,
+    slide: null,
     player: { x: 0, y: 0, vx: 0, vy: 0 },
     facing: -Math.PI / 2,
     iframes: 0,
@@ -197,8 +199,14 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
     return
   }
 
+  if (g.slide) {
+    stepSlide(g, dt)
+    stepCosmetics(g, dt)
+    return
+  }
+
   g.slip = g.event === 'slip'
-  g.light = lightOf(g.heat, g.maxHeat, g.event === 'fog' ? 108 : 168)
+  g.light = lightOf(g.heat, g.maxHeat, g.event === 'fog' ? 160 : 240)
   g.time += dt
   g.iframes = Math.max(0, g.iframes - dt)
   g.burstCd = Math.max(0, g.burstCd - dt)
@@ -210,7 +218,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
 
   stepPlayer(g, input, dt)
   stepHazards(g, dt)
-  stepPickups(g)
+  stepPickups(g, dt)
   starve(g, dt)
   if (g.state !== 'playing') {
     stepCosmetics(g, dt)
@@ -233,6 +241,7 @@ function beginDungeon(g: Game, stair: boolean): void {
   g.rooms = plan.rooms
   g.event = plan.event
   g.roomIndex = 0
+  g.slide = null
   g.enemies = []
   g.bullets = []
   g.beams = []
@@ -278,23 +287,12 @@ function goTo(g: Game, index: number, from: Dir): void {
     for (const spawn of here.spawns) g.enemies.push(makeEnemy(g, spawn.kind, spawn.x, spawn.y))
     if (here.kind === 'boss') g.events.push({ type: 'boss' })
   }
-  const door = here.doors.find((item) => item.dir === from)
-  if (door) {
-    const at = doorCenter(door)
-    const inset = TILE * 1.35
-    if (from === 'n') g.player.y = at.y + inset
-    if (from === 's') g.player.y = at.y - inset
-    if (from === 'w') g.player.x = at.x + inset
-    if (from === 'e') g.player.x = at.x - inset
-    if (from === 'n' || from === 's') g.player.x = at.x
-    if (from === 'e' || from === 'w') g.player.y = at.y
-  } else {
-    const mid = center(here)
-    g.player.x = mid.x
-    g.player.y = mid.y
-  }
+  const at = entryOf(here, from)
+  g.player.x = at.x
+  g.player.y = at.y
   g.player.vx = 0
   g.player.vy = 0
+  shoveEnemies(g)
   g.doorHold = 0.45
   if (first && here.kind === 'boss') {
     g.banner = {
@@ -366,20 +364,78 @@ function stepHazards(g: Game, dt: number): void {
   }
 }
 
-function stepPickups(g: Game): void {
+function stepPickups(g: Game, dt: number): void {
+  const here = room(g)
+  const reach = 28 + g.stats.magnet
   for (const item of g.pickups) {
     if (item.taken) continue
-    if (Math.hypot(item.x - g.player.x, item.y - g.player.y) > 16) continue
-    item.taken = true
-    if (item.kind === 'coin') {
-      g.coins += 1
-      floater(g, item.x, item.y - 12, '+1', '#f0b45a')
+    if (item.kind === 'spark') {
+      const d = Math.hypot(item.x - g.player.x, item.y - g.player.y)
+      if (d < reach && d > 0) {
+        const tug = d < 16 ? 1 : (140 * dt) / Math.max(16, d)
+        item.x += (g.player.x - item.x) * Math.min(1, tug)
+        item.y += (g.player.y - item.y) * Math.min(1, tug)
+      }
+      if (d < 16) takePickup(g, item)
     } else {
-      g.heat = Math.min(g.maxHeat, g.heat + 7)
-      floater(g, item.x, item.y - 12, '+7 heat', '#ffb15a')
+      coast(here, item, 6, dt)
+      if (Math.hypot(item.x - g.player.x, item.y - g.player.y) < 14) takePickup(g, item)
     }
-    g.events.push({ type: 'collect' })
   }
+  if (here.chest) coast(here, here.chest, 14, dt)
+}
+
+function takePickup(g: Game, item: Pickup): void {
+  if (item.taken) return
+  item.taken = true
+  if (item.kind === 'coin') {
+    g.coins += 1
+    floater(g, item.x, item.y - 12, '+1', '#f0b45a')
+    shine(g, item.x, item.y)
+  } else {
+    g.heat = Math.min(g.maxHeat, g.heat + 7)
+    floater(g, item.x, item.y - 12, '+7 heat', '#ffb15a')
+    puff(g, item.x, item.y, 'rgba(255,190,80,0.9)', 5, 40, 0.3, 1.6)
+  }
+  g.events.push({ type: 'collect' })
+}
+
+function shine(g: Game, x: number, y: number): void {
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * TAU + g.rng() * 0.25
+    const mag = 70 + g.rng() * 110
+    g.particles.push({
+      x,
+      y,
+      vx: Math.cos(ang) * mag,
+      vy: Math.sin(ang) * mag,
+      life: 0.34,
+      max: 0.34,
+      size: i % 3 === 0 ? 2.6 : 1.35,
+      color: i % 2 === 0 ? 'rgba(255,248,230,0.95)' : 'rgba(255,206,96,0.92)',
+      grav: 0,
+    })
+  }
+}
+
+function coast(
+  r: Room,
+  body: { x: number; y: number; vx: number; vy: number },
+  radius: number,
+  dt: number,
+): void {
+  body.vx *= Math.exp(-3.2 * dt)
+  body.vy *= Math.exp(-3.2 * dt)
+  if (Math.hypot(body.vx, body.vy) < 4) {
+    body.vx = 0
+    body.vy = 0
+  }
+  const nx = body.x + body.vx * dt
+  if (!hitsSolid(r, nx, body.y, radius)) body.x = nx
+  else body.vx *= -0.45
+  const ny = body.y + body.vy * dt
+  if (!hitsSolid(r, body.x, ny, radius)) body.y = ny
+  else body.vy *= -0.45
 }
 
 function starve(g: Game, dt: number): void {
@@ -449,9 +505,13 @@ function equipActive(g: Game, id: string, name: string, description: string, cha
 function openChest(g: Game, x: number, y: number): void {
   const coins = 2 + Math.floor(g.rng() * 3)
   for (let i = 0; i < coins; i++) {
+    const ang = g.rng() * TAU + i * 0.7
+    const speed = 70 + g.rng() * 90
     room(g).coins.push({
-      x: x + (i - 1) * 14,
-      y: y + 10,
+      x: x + Math.cos(ang) * 10,
+      y: y + Math.sin(ang) * 10,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
       kind: 'coin',
       taken: false,
     })
@@ -568,7 +628,7 @@ function stepEnemies(g: Game, dt: number): void {
     else stepWisp(g, e, dt, haste)
     if (e.kind !== 'boss') moveCircle(here, e, e.r, dt)
     else moveCircle(here, e, e.r * 0.8, dt)
-    if (Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch, e.name)
+    if (e.arrive >= 0.85 && Math.hypot(e.x - g.player.x, e.y - g.player.y) < e.r + 12) hurt(g, e.touch, e.name)
   }
   separateEnemies(g)
   unstick(g)
@@ -636,6 +696,7 @@ function stepCinder(g: Game, e: Enemy, dt: number, haste: number): void {
 const SPIKE_SPIN = 2.4
 const SPIKE_LIFE = 1.15
 const SPIKE_SPEED = 280
+const SPIKE_AIM = 0.62
 
 function stepBoss(g: Game, e: Enemy, dt: number): void {
   if (e.mode === 2) {
@@ -657,20 +718,24 @@ function stepBoss(g: Game, e: Enemy, dt: number): void {
       e.mode = 2
       e.vx = 0
       e.vy = 0
-      for (const slot of e.spikes) {
-        if (slot.cool > 0) continue
+      const n = Math.max(1, e.spikes.length)
+      e.spikes.forEach((slot, i) => {
+        const spin = e.aim + (i / n) * TAU
+        slot.show = spin
+        if (slot.cool > 0) return
+        slot.from = spin
         slot.ang = g.rng() * TAU
-        slot.warn = 0.42
+        slot.warn = SPIKE_AIM
         g.warnings.push({
           x: e.x,
           y: e.y,
           ang: slot.ang,
           len: SPIKE_SPEED * SPIKE_LIFE,
-          life: 0.42,
-          max: 0.42,
+          life: SPIKE_AIM,
+          max: SPIKE_AIM,
           thin: false,
         })
-      }
+      })
     }
   } else {
     let pending = false
@@ -678,7 +743,11 @@ function stepBoss(g: Game, e: Enemy, dt: number): void {
       if (slot.warn <= 0) continue
       pending = true
       slot.warn -= dt
+      const along = 1 - Math.max(0, slot.warn) / SPIKE_AIM
+      const eased = along * along * (3 - 2 * along)
+      slot.show = lerpAngle(slot.from, slot.ang, Math.min(1, eased))
       if (slot.warn > 0) continue
+      slot.show = slot.ang
       g.bullets.push({
         x: e.x + Math.cos(slot.ang) * e.r,
         y: e.y + Math.sin(slot.ang) * e.r,
@@ -743,7 +812,10 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
     didHit: false,
     eyes: 0,
     nextEye: 99,
-    spikes: kind === 'boss' ? Array.from({ length: 8 }, () => ({ cool: 0, warn: 0, ang: 0 }) satisfies SpikeSlot) : [],
+    spikes:
+      kind === 'boss'
+        ? Array.from({ length: 8 }, () => ({ cool: 0, warn: 0, ang: 0, from: 0, show: 0 }) satisfies SpikeSlot)
+        : [],
     trail: 0,
     prevX: x,
     prevY: y,
@@ -769,7 +841,7 @@ function resolveDeaths(g: Game): void {
       g.shake = 10
       puff(g, e.x, e.y, 'rgba(255,220,180,0.9)', 16, 110, 0.45, 3)
     } else {
-      room(g).coins.push({ x: e.x, y: e.y, kind: 'spark', taken: false })
+      room(g).coins.push({ x: e.x, y: e.y, vx: 0, vy: 0, kind: 'spark', taken: false })
       puff(g, e.x, e.y, e.kind === 'cinder' ? 'rgba(255,80,50,0.8)' : 'rgba(40,32,34,0.9)', 6, 50, 0.35, 2)
     }
   }
@@ -789,14 +861,27 @@ function watchClear(g: Game): void {
     if (g.rng() < chance) {
       const roll = g.rng()
       const kind = roll < 0.7 ? 'coin' : 'spark'
-      here.coins.push({ x: g.player.x + 18, y: g.player.y, kind, taken: false })
+      const ang = g.rng() * TAU
+      const speed = kind === 'coin' ? 70 + g.rng() * 90 : 0
+      here.coins.push({
+        x: g.player.x + Math.cos(ang) * 18,
+        y: g.player.y + Math.sin(ang) * 18,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+        kind,
+        taken: false,
+      })
     }
   }
   if (here.kind === 'boss') {
     here.stair = true
+    const ang = g.rng() * TAU
+    const speed = 36 + g.rng() * 40
     here.chest = {
       x: center(here).x + 54,
       y: center(here).y + 36,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
       opened: false,
       coins: 0,
       upgradeId: null,
@@ -817,9 +902,60 @@ function tryDoor(g: Game): void {
       (across && tx === door.tx + 1 && ty === door.ty) ||
       (!across && tx === door.tx && ty === door.ty + 1)
     if (!on) continue
-    goTo(g, door.to, opposite(door.dir))
+    g.slide = { from: g.roomIndex, to: door.to, dir: door.dir, t: 0 }
     return
   }
+}
+
+function stepSlide(g: Game, dt: number): void {
+  const slide = g.slide
+  if (!slide) return
+  slide.t += dt
+  if (slide.t < SLIDE_TIME) return
+  const dir = slide.dir
+  const to = slide.to
+  g.slide = null
+  goTo(g, to, opposite(dir))
+}
+
+function shoveEnemies(g: Game): void {
+  const here = room(g)
+  for (const e of g.enemies) {
+    let dx = e.x - g.player.x
+    let dy = e.y - g.player.y
+    let dist = Math.hypot(dx, dy)
+    if (dist >= 110) continue
+    if (dist < 0.001) {
+      const mid = center(here)
+      dx = mid.x - g.player.x || 1
+      dy = mid.y - g.player.y
+      dist = Math.hypot(dx, dy) || 1
+    }
+    const nx = dx / dist
+    const ny = dy / dist
+    let x = g.player.x + nx * 110
+    let y = g.player.y + ny * 110
+    for (let step = 0; step < 6 && hitsSolid(here, x, y, e.r); step++) {
+      x += nx * 18
+      y += ny * 18
+    }
+    if (hitsSolid(here, x, y, e.r)) {
+      const mid = center(here)
+      x = mid.x
+      y = mid.y
+    }
+    e.x = x
+    e.y = y
+    e.prevX = x
+    e.prevY = y
+  }
+}
+
+function lerpAngle(from: number, to: number, t: number): number {
+  let delta = (to - from) % TAU
+  if (delta > Math.PI) delta -= TAU
+  if (delta < -Math.PI) delta += TAU
+  return from + delta * t
 }
 
 function opposite(dir: Dir): Dir {

@@ -63,6 +63,31 @@ export function buildFloor(seed: number, dungeon: number): FloorPlan {
   return { event, rooms }
 }
 
+export function entryOf(room: Room, dir: Dir): { x: number; y: number } {
+  const door = room.doors.find((item) => item.dir === dir)
+  if (!door) return { x: (room.w * TILE) / 2, y: (room.h * TILE) / 2 }
+  const at = doorCenter(door)
+  const inset = TILE * 1.35
+  if (dir === 'n') return { x: at.x, y: at.y + inset }
+  if (dir === 's') return { x: at.x, y: at.y - inset }
+  if (dir === 'w') return { x: at.x + inset, y: at.y }
+  return { x: at.x - inset, y: at.y }
+}
+
+export function roomOffset(from: Room, to: Room, dir: Dir): { x: number; y: number } {
+  const leave = from.doors.find((item) => item.dir === dir)
+  const arrive = to.doors.find((item) => item.dir === OPPOSITE[dir])
+  if (!leave || !arrive) {
+    if (dir === 'e') return { x: from.w * TILE, y: 0 }
+    if (dir === 'w') return { x: -to.w * TILE, y: 0 }
+    if (dir === 's') return { x: 0, y: from.h * TILE }
+    return { x: 0, y: -to.h * TILE }
+  }
+  const a = doorCenter(leave)
+  const b = doorCenter(arrive)
+  return { x: a.x - b.x, y: a.y - b.y }
+}
+
 export function doorCenter(door: Door): { x: number; y: number } {
   const across = door.dir === 'n' || door.dir === 's'
   const x = (door.tx + (across ? 1 : 0.5)) * TILE
@@ -309,7 +334,16 @@ function coinSpawns(rng: () => number, room: Room, count: number, kind: 'coin' |
   const coins: Room['coins'] = []
   for (let i = 0; i < count && open.length; i++) {
     const at = tileCenter(room, open.splice(Math.floor(rng() * open.length), 1)[0]!)
-    coins.push({ x: at.x, y: at.y, kind, taken: false })
+    const ang = rng() * Math.PI * 2
+    const speed = kind === 'coin' ? 36 + rng() * 70 : 0
+    coins.push({
+      x: at.x,
+      y: at.y,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      kind,
+      taken: false,
+    })
   }
   return coins
 }
@@ -318,7 +352,9 @@ function chestAt(rng: () => number, room: Room): Room['chest'] {
   const open = openTiles(room)
   if (!open.length) return null
   const at = tileCenter(room, open[Math.floor(rng() * open.length)]!)
-  return { x: at.x, y: at.y, opened: false, coins: 0, upgradeId: null }
+  const ang = rng() * Math.PI * 2
+  const speed = 28 + rng() * 40
+  return { x: at.x, y: at.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, opened: false, coins: 0, upgradeId: null }
 }
 
 function stockTreasure(rng: () => number, room: Room): void {

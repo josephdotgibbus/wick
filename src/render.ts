@@ -1,6 +1,6 @@
-import { doorCenter } from './dungeon.ts'
-import type { Bullet, Decor, Enemy, Game, Particle, Room } from './types.ts'
-import { TILE } from './types.ts'
+import { doorCenter, entryOf, roomOffset } from './dungeon.ts'
+import type { Bullet, Decor, Dir, Enemy, Game, Particle, Room } from './types.ts'
+import { SLIDE_TIME, TILE } from './types.ts'
 
 const TAU = Math.PI * 2
 
@@ -37,18 +37,31 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   ctx.scale(cam.zoom, cam.zoom)
   ctx.translate(-cam.x, -cam.y)
 
+  const pose = menu ? null : slidePose(g)
   if (menu) drawGround(ctx, g.player.x, g.player.y, w, h)
-  else drawRoom(ctx, g, view.wall)
-  for (const wline of g.warnings) drawWarning(ctx, wline.x, wline.y, wline.ang, wline.len, wline.life / wline.max, wline.thin)
-  for (const beam of g.beams) drawBeam(ctx, beam.x, beam.y, beam.ang, beam.len, beam.width, beam.life / beam.max, beam.color)
+  else if (pose) {
+    drawRoom(ctx, pose.from, view.wall, 0, 0)
+    drawRoom(ctx, pose.to, view.wall, pose.off.x, pose.off.y)
+  } else {
+    const here = g.rooms[g.roomIndex]
+    if (here) drawRoom(ctx, here, view.wall, 0, 0)
+  }
+  if (!pose) {
+    for (const wline of g.warnings) drawWarning(ctx, wline.x, wline.y, wline.ang, wline.len, wline.life / wline.max, wline.thin)
+    for (const beam of g.beams) drawBeam(ctx, beam.x, beam.y, beam.ang, beam.len, beam.width, beam.life / beam.max, beam.color)
+  }
   for (const p of g.particles) if (p.behind) drawParticle(ctx, p)
   ctx.globalAlpha = 1
   if (menu) {
     for (const d of g.decor) drawDecor(ctx, d, g.menuT)
   }
-  for (const e of g.enemies) drawEnemy(ctx, e, view.wall)
-  for (const b of g.bullets) drawBullet(ctx, b)
-  drawFlame(ctx, g, view.wall)
+  if (!pose) {
+    for (const e of g.enemies) drawEnemy(ctx, e, view.wall)
+    for (const b of g.bullets) drawBullet(ctx, b)
+  }
+  const flameX = pose ? pose.px : g.player.x
+  const flameY = pose ? pose.py : g.player.y
+  drawFlame(ctx, g, view.wall, flameX, flameY)
   for (const p of g.particles) if (!p.behind) drawParticle(ctx, p)
   ctx.globalAlpha = 1
   for (const f of g.floaters) {
@@ -59,21 +72,20 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.fillText(f.text, f.x, f.y)
   }
   ctx.globalAlpha = 1
-  if (!menu && g.state !== 'dead') {
+  if (!menu && !pose && g.state !== 'dead') {
     const span = Math.max(w, h) / cam.zoom
-    const glow = ctx.createRadialGradient(g.player.x, g.player.y, g.light * 0.45, g.player.x, g.player.y, g.light)
+    const radius = g.light * 1.45
+    const glow = ctx.createRadialGradient(g.player.x, g.player.y, radius * 0.62, g.player.x, g.player.y, radius)
     glow.addColorStop(0, 'rgba(0,0,0,0)')
-    glow.addColorStop(1, 'rgba(0,0,0,0.55)')
+    glow.addColorStop(1, 'rgba(0,0,0,0.22)')
     ctx.fillStyle = glow
     ctx.fillRect(g.player.x - span, g.player.y - span, span * 2, span * 2)
   }
   ctx.restore()
 
-  if (!menu) {
-    drawMarkers(ctx, g, w, h)
-    drawMap(ctx, g, w, h)
-  }
+  if (!menu && !pose) drawMarkers(ctx, g, w, h)
   drawVignette(ctx, g, w, h)
+  if (!menu) drawMap(ctx, g, w, h)
   if (g.slip && g.state === 'playing') {
     ctx.fillStyle = 'rgba(180, 200, 220, 0.04)'
     ctx.fillRect(0, 0, w, h)
@@ -91,12 +103,22 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
 }
 
 function camera(g: Game, w: number, h: number): { x: number; y: number; zoom: number } {
+  const pose = slidePose(g)
+  if (pose) {
+    const z0 = zoomFor(pose.from, w, h)
+    const z1 = zoomFor(pose.to, w, h)
+    const zoom = z0 + (z1 - z0) * pose.u
+    const x0 = (pose.from.w * TILE) / 2
+    const y0 = (pose.from.h * TILE) / 2
+    const x1 = (pose.to.w * TILE) / 2 + pose.off.x
+    const y1 = (pose.to.h * TILE) / 2 + pose.off.y
+    return { x: x0 + (x1 - x0) * pose.u, y: y0 + (y1 - y0) * pose.u, zoom }
+  }
   const here = g.rooms[g.roomIndex]
   if (!here) return { x: g.player.x, y: g.player.y, zoom: 1 }
+  const zoom = zoomFor(here, w, h)
   const rw = here.w * TILE
   const rh = here.h * TILE
-  const fit = Math.min((w - 36) / rw, (h - 150) / rh)
-  const zoom = Math.min(2.8, Math.max(1, fit))
   if (rw * zoom <= w && rh * zoom <= h) return { x: rw / 2, y: rh / 2, zoom }
   const viewW = w / zoom
   const viewH = h / zoom
@@ -107,26 +129,61 @@ function camera(g: Game, w: number, h: number): { x: number; y: number; zoom: nu
   }
 }
 
-function drawRoom(ctx: CanvasRenderingContext2D, g: Game, t: number): void {
-  const here = g.rooms[g.roomIndex]
-  if (!here) return
+function zoomFor(room: Room, w: number, h: number): number {
+  const fit = Math.min((w - 36) / (room.w * TILE), (h - 150) / (room.h * TILE))
+  return Math.min(2.8, Math.max(1, fit))
+}
+
+function slidePose(g: Game): { from: Room; to: Room; off: { x: number; y: number }; px: number; py: number; u: number } | null {
+  const slide = g.slide
+  if (!slide) return null
+  const from = g.rooms[slide.from]
+  const to = g.rooms[slide.to]
+  if (!from || !to) return null
+  const off = roomOffset(from, to, slide.dir)
+  const u = smooth(Math.min(1, slide.t / SLIDE_TIME))
+  const arrive = entryOf(to, oppositeDir(slide.dir))
+  return {
+    from,
+    to,
+    off,
+    u,
+    px: g.player.x + (arrive.x + off.x - g.player.x) * u,
+    py: g.player.y + (arrive.y + off.y - g.player.y) * u,
+  }
+}
+
+function smooth(u: number): number {
+  return u * u * (3 - 2 * u)
+}
+
+function oppositeDir(dir: Dir): Dir {
+  if (dir === 'n') return 's'
+  if (dir === 's') return 'n'
+  if (dir === 'e') return 'w'
+  return 'e'
+}
+
+function drawRoom(ctx: CanvasRenderingContext2D, here: Room, t: number, ox: number, oy: number): void {
+  ctx.save()
+  ctx.translate(ox, oy)
   for (let y = 0; y < here.h; y++) {
     for (let x = 0; x < here.w; x++) {
       const tile = here.tiles[y * here.w + x] ?? 1
       const px = x * TILE
       const py = y * TILE
       if (tile === 1) {
-        ctx.fillStyle = '#1a1412'
+        ctx.fillStyle = '#4a3b34'
         ctx.fillRect(px, py, TILE + 0.5, TILE + 0.5)
-        ctx.fillStyle = 'rgba(246, 239, 228, 0.05)'
-        ctx.fillRect(px, py, TILE, 3)
+        ctx.fillStyle = 'rgba(246, 239, 228, 0.16)'
+        ctx.fillRect(px, py, TILE, 4)
       } else if (tile === 2) {
-        ctx.fillStyle = '#241812'
+        ctx.fillStyle = '#6a5348'
         ctx.fillRect(px, py, TILE, TILE)
         drawStoneTile(ctx, px + TILE / 2, py + TILE / 2)
       } else {
         const shade = ((x * 17 + y * 9) % 5) / 80
-        ctx.fillStyle = `rgb(${28 + shade * 40}, ${18 + shade * 20}, ${14 + shade * 12})`
+        ctx.fillStyle = `rgb(${78 + shade * 50}, ${52 + shade * 28}, ${40 + shade * 16})`
         ctx.fillRect(px, py, TILE + 0.5, TILE + 0.5)
         if (tile === 3) drawHazard(ctx, px + TILE / 2, py + TILE / 2, 12, 'pit', t)
         if (tile === 4) drawHazard(ctx, px + TILE / 2, py + TILE / 2, 11, 'bramble', t)
@@ -138,6 +195,7 @@ function drawRoom(ctx: CanvasRenderingContext2D, g: Game, t: number): void {
   for (const pedestal of here.pedestals) drawPedestal(ctx, pedestal.x, pedestal.y, !!pedestal.upgradeId && !pedestal.taken, pedestal.taken)
   if (here.chest && (here.kind !== 'boss' || here.cleared)) drawChest(ctx, here.chest.x, here.chest.y, here.chest.opened, t)
   if (here.stair) drawStair(ctx, (here.w * TILE) / 2, (here.h * TILE) / 2 + 70, t)
+  ctx.restore()
 }
 
 function drawDoor(
@@ -167,12 +225,37 @@ function drawStoneTile(ctx: CanvasRenderingContext2D, x: number, y: number): voi
   ctx.stroke()
 }
 
-function drawPickup(ctx: CanvasRenderingContext2D, x: number, y: number, kind: 'coin' | 'spark' | 'soul', t: number): void {
-  const bob = Math.sin(t * 4 + x) * 2
+function drawPickup(ctx: CanvasRenderingContext2D, x: number, y: number, kind: 'coin' | 'spark', t: number): void {
+  if (kind === 'spark') {
+    drawSpark(ctx, x, y, t)
+    return
+  }
+  drawCoin(ctx, x, y, t)
+}
+
+function drawCoin(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
+  const bob = Math.sin(t * 3.2 + x * 0.08) * 1.4
+  const cy = y + bob
   ctx.beginPath()
-  ctx.arc(x, y + bob, kind === 'coin' ? 5 : 6, 0, TAU)
-  ctx.fillStyle = kind === 'coin' ? '#f0b45a' : kind === 'soul' ? '#8ecbff' : '#ffb15a'
+  ctx.arc(x, cy, 5.8, 0, TAU)
+  ctx.fillStyle = '#a86a1c'
   ctx.fill()
+  ctx.beginPath()
+  ctx.arc(x, cy, 4.3, 0, TAU)
+  ctx.fillStyle = '#f0b45a'
+  ctx.fill()
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(x, cy, 4.3, 0, TAU)
+  ctx.clip()
+  const sweep = ((t * 0.65 + x * 0.017) % 1) * 18 - 9
+  const glint = ctx.createLinearGradient(x + sweep - 3, cy, x + sweep + 3, cy)
+  glint.addColorStop(0, 'rgba(255,255,255,0)')
+  glint.addColorStop(0.5, 'rgba(255,252,240,0.95)')
+  glint.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = glint
+  ctx.fillRect(x + sweep - 3, cy - 6, 6, 12)
+  ctx.restore()
 }
 
 function drawPedestal(ctx: CanvasRenderingContext2D, x: number, y: number, full: boolean, taken: boolean): void {
@@ -215,8 +298,8 @@ function drawStair(ctx: CanvasRenderingContext2D, x: number, y: number, t: numbe
 
 function drawMap(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number): void {
   if (!g.rooms.length) return
-  const cell = 14
-  const gap = 4
+  const cell = w < 720 ? 14 : 18
+  const gap = 5
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -231,26 +314,43 @@ function drawMap(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number): 
   const rows = maxY - minY + 1
   const width = cols * cell + (cols - 1) * gap
   const height = rows * cell + (rows - 1) * gap
-  const originX = Math.max(16, w - width - 18)
-  const originY = Math.max(16, h - height - 108)
-  ctx.fillStyle = 'rgba(16, 12, 10, 0.78)'
-  ctx.fillRect(originX - 8, originY - 8, width + 16, height + 16)
+  const plateW = width + 20
+  const plateH = height + 34
+  const originX = Math.max(16, w - plateW - 16)
+  const originY = Math.max(96, Math.min(h - plateH - 130, w < 800 ? 214 : 108))
+  ctx.fillStyle = 'rgba(28, 20, 16, 0.94)'
+  ctx.fillRect(originX - 10, originY - 8, plateW, plateH)
+  ctx.strokeStyle = 'rgba(240, 180, 90, 0.85)'
+  ctx.lineWidth = 1.5
+  ctx.strokeRect(originX - 10 + 0.75, originY - 8 + 0.75, plateW - 1.5, plateH - 1.5)
+  ctx.fillStyle = '#f6efe4'
+  ctx.font = '700 12px "Outfit Variable", Outfit, sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText('MAP', originX, originY)
+  const gridY = originY + 18
+  const here = g.slide && g.slide.t > 0.2 ? g.slide.to : g.roomIndex
   for (const room of g.rooms) {
     const x = originX + (room.gx - minX) * (cell + gap)
-    const y = originY + (room.gy - minY) * (cell + gap)
-    const current = room.id === g.roomIndex
+    const y = gridY + (room.gy - minY) * (cell + gap)
+    const current = room.id === here
     ctx.fillStyle = current
-      ? '#f6efe4'
+      ? '#fff8ee'
       : room.kind === 'treasure'
         ? '#f0b45a'
         : room.kind === 'boss'
           ? '#ff4d3a'
           : room.visited
-            ? 'rgba(246,239,228,0.45)'
-            : 'rgba(246,239,228,0.16)'
+            ? 'rgba(246,239,228,0.78)'
+            : 'rgba(246,239,228,0.42)'
     ctx.fillRect(x, y, cell, cell)
+    if (current) {
+      ctx.strokeStyle = '#ffb15a'
+      ctx.lineWidth = 2
+      ctx.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3)
+    }
   }
-  void w
+  void h
 }
 
 function drawParticle(ctx: CanvasRenderingContext2D, p: Particle): void {
@@ -434,10 +534,10 @@ function drawBoss(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
   if (!shut) {
     const n = Math.max(1, e.spikes.length)
     e.spikes.forEach((slot, i) => {
-      const aimed = slot.warn > 0
+      const aimed = e.mode === 2 && slot.warn > 0
       const grow = slot.cool > 0 ? Math.max(0, 1 - slot.cool / 1.85) : 1
-      if (!aimed && grow < 0.06) return
-      const ang = aimed ? slot.ang : e.aim + (i / n) * TAU
+      if (e.mode !== 2 && grow < 0.06) return
+      const ang = e.mode === 2 ? slot.show : e.aim + (i / n) * TAU
       const len = e.r * (0.72 + (aimed ? 1 : grow) * 0.55)
       ctx.save()
       ctx.translate(e.x, e.y)
@@ -517,13 +617,13 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
   ctx.restore()
 }
 
-function drawFlame(ctx: CanvasRenderingContext2D, g: Game, wall: number): void {
+function drawFlame(ctx: CanvasRenderingContext2D, g: Game, wall: number, x: number, y: number): void {
   const heat = g.maxHeat <= 0 ? 0 : Math.max(0, g.heat) / g.maxHeat
   let scale = 14 + heat * 8
   if (g.state === 'dying' || g.state === 'dead') scale *= Math.max(0, g.snuff)
   if (scale < 0.5) return
   if (g.iframes > 0 && Math.sin(wall * 42) > 0.2) ctx.globalAlpha = 0.55
-  flame(ctx, g.player.x, g.player.y, scale, wall)
+  flame(ctx, x, y, scale, wall)
   ctx.globalAlpha = 1
 }
 
@@ -577,7 +677,7 @@ function drawVignette(ctx: CanvasRenderingContext2D, g: Game, w: number, h: numb
   const cold = Math.max(0, 0.42 - heat)
   const vg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.18, w / 2, h / 2, Math.max(w, h) * 0.68)
   vg.addColorStop(0, 'rgba(0,0,0,0)')
-  vg.addColorStop(1, cold > 0.04 ? `rgba(8, 22, 38, ${0.38 + cold})` : 'rgba(0,0,0,0.48)')
+  vg.addColorStop(1, cold > 0.04 ? `rgba(8, 22, 38, ${0.22 + cold * 0.6})` : 'rgba(0,0,0,0.22)')
   ctx.fillStyle = vg
   ctx.fillRect(0, 0, w, h)
 }

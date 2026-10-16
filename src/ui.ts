@@ -209,13 +209,14 @@ function paintHud(g: Game): void {
 }
 
 function paintStats(g: Game): void {
-  const sig = `${g.stats.damage}:${g.stats.tears}:${g.heat}:${g.maxHeat}:${g.passives.join()}|${g.active?.id ?? ''}:${g.active?.charge ?? 0}`
+  const sig = `${g.stats.damage}:${g.stats.tears}:${g.stats.speed}:${g.stats.range}:${g.stats.shotSpeed}:${g.stats.luck}:${g.stats.magnet}:${g.heat}:${g.maxHeat}:${g.coins}:${g.passives.join()}|${g.active?.id ?? ''}:${g.active?.charge ?? 0}`
   if (sig === loadSig) return
   loadSig = sig
   const sheet = byId('stat-sheet')
   sheet.replaceChildren()
   for (const line of statLines(g.stats)) addRecord(sheet, line.label, line.value)
   addRecord(sheet, 'Heat', `${Math.ceil(g.heat)} / ${Math.round(g.maxHeat)}`)
+  addRecord(sheet, 'Coins', String(g.coins))
   const list = byId('loadout-ups')
   list.replaceChildren()
   if (!g.passives.length && !g.active) {
@@ -247,6 +248,8 @@ function paintDead(g: Game, save: Save, session: Session): void {
   addRecord(stats, 'Enemies', String(g.kills))
   addRecord(stats, 'Coins', String(g.coins))
   addRecord(stats, 'Bosses', String(g.bossKills))
+  for (const line of statLines(g.stats)) addRecord(stats, line.label, line.value)
+  addRecord(stats, 'Heat', `${Math.ceil(g.heat)} / ${Math.round(g.maxHeat)}`)
   byId('dead-build').textContent = pauseLine(g)
   const unlocks = byId('dead-unlocks')
   unlocks.textContent = session.fresh.length

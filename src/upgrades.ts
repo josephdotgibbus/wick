@@ -20,6 +20,8 @@ export interface UpgradeDef {
   range?: number
   shotSpeed?: number
   luck?: number
+  /** Extra pixels added to how far sparks start pulling toward you. */
+  magnet?: number
   maxHeat?: number
   charges?: number
   use?: string
@@ -44,6 +46,7 @@ export function upgradeDetail(def: UpgradeDef): string {
   if (def.range) parts.push(`Range ${signed(def.range)}`)
   if (def.shotSpeed) parts.push(`Shot speed ${signed(def.shotSpeed)}`)
   if (def.luck) parts.push(`Luck ${signed(def.luck)}`)
+  if (def.magnet) parts.push(`Magnet ${signed(def.magnet)}`)
   if (def.maxHeat) parts.push(`Heat ${signed(def.maxHeat)}`)
   if (def.kind === 'active') parts.push(`Active item. Charges in ${def.charges ?? 1} cleared rooms.`)
   return parts.join(' · ')

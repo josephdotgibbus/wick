@@ -183,8 +183,10 @@ window.addEventListener('keydown', (event) => {
   if (typing()) return
   sound.unlock()
   if (game.state === 'playing' && (event.code === 'Space' || event.code.startsWith('Arrow'))) event.preventDefault()
+  if (event.code === 'Tab') event.preventDefault()
   keys.add(event.code)
   if (event.repeat) return
+  if (event.code === 'Tab' && (game.state === 'playing' || game.state === 'paused')) toggleLoadout(game)
   if (event.code === 'Space' && game.state === 'playing') queueBurst()
   if (event.code === 'KeyQ' && game.state === 'playing') queueUse()
   if ((event.code === 'KeyE' || event.code === 'KeyF') && game.state === 'playing') queueInteract()

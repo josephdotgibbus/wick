@@ -28,6 +28,8 @@ export interface Stats {
   range: number
   shotSpeed: number
   luck: number
+  /** Extra distance, in pixels, at which sparks start dragging toward you. */
+  magnet: number
 }
 
 export interface Active {
@@ -56,6 +58,8 @@ export interface Pedestal {
 export interface Chest {
   x: number
   y: number
+  vx: number
+  vy: number
   opened: boolean
   coins: number
   upgradeId: string | null
@@ -64,6 +68,8 @@ export interface Chest {
 export interface Pickup {
   x: number
   y: number
+  vx: number
+  vy: number
   kind: PickupKind
   taken: boolean
 }
@@ -100,6 +106,8 @@ export interface SpikeSlot {
   cool: number
   warn: number
   ang: number
+  from: number
+  show: number
 }
 
 export interface Player {
@@ -213,6 +221,15 @@ export interface Banner {
   life: number
 }
 
+export const SLIDE_TIME = 0.45
+
+export interface Slide {
+  from: number
+  to: number
+  dir: Dir
+  t: number
+}
+
 export type GameEvent =
   | { type: 'hurt' }
   | { type: 'collect' }
@@ -267,6 +284,7 @@ export interface Game {
   slip: boolean
   rooms: Room[]
   roomIndex: number
+  slide: Slide | null
   player: Player
   facing: number
   iframes: number
