@@ -85,7 +85,6 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
 
   if (!menu && !pose) drawMarkers(ctx, g, w, h)
   drawVignette(ctx, g, w, h)
-  if (!menu) drawMap(ctx, g, w, h)
   if (g.slip && g.state === 'playing') {
     ctx.fillStyle = 'rgba(180, 200, 220, 0.04)'
     ctx.fillRect(0, 0, w, h)
@@ -294,63 +293,6 @@ function drawStair(ctx: CanvasRenderingContext2D, x: number, y: number, t: numbe
   ctx.beginPath()
   ctx.arc(x, y, 8, 0, TAU)
   ctx.fill()
-}
-
-function drawMap(ctx: CanvasRenderingContext2D, g: Game, w: number, h: number): void {
-  if (!g.rooms.length) return
-  const cell = w < 720 ? 14 : 18
-  const gap = 5
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const room of g.rooms) {
-    minX = Math.min(minX, room.gx)
-    minY = Math.min(minY, room.gy)
-    maxX = Math.max(maxX, room.gx)
-    maxY = Math.max(maxY, room.gy)
-  }
-  const cols = maxX - minX + 1
-  const rows = maxY - minY + 1
-  const width = cols * cell + (cols - 1) * gap
-  const height = rows * cell + (rows - 1) * gap
-  const plateW = width + 20
-  const plateH = height + 34
-  const originX = Math.max(16, w - plateW - 16)
-  const originY = Math.max(96, Math.min(h - plateH - 130, w < 800 ? 214 : 108))
-  ctx.fillStyle = 'rgba(28, 20, 16, 0.94)'
-  ctx.fillRect(originX - 10, originY - 8, plateW, plateH)
-  ctx.strokeStyle = 'rgba(240, 180, 90, 0.85)'
-  ctx.lineWidth = 1.5
-  ctx.strokeRect(originX - 10 + 0.75, originY - 8 + 0.75, plateW - 1.5, plateH - 1.5)
-  ctx.fillStyle = '#f6efe4'
-  ctx.font = '700 12px "Outfit Variable", Outfit, sans-serif'
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText('MAP', originX, originY)
-  const gridY = originY + 18
-  const here = g.slide && g.slide.t > 0.2 ? g.slide.to : g.roomIndex
-  for (const room of g.rooms) {
-    const x = originX + (room.gx - minX) * (cell + gap)
-    const y = gridY + (room.gy - minY) * (cell + gap)
-    const current = room.id === here
-    ctx.fillStyle = current
-      ? '#fff8ee'
-      : room.kind === 'treasure'
-        ? '#f0b45a'
-        : room.kind === 'boss'
-          ? '#ff4d3a'
-          : room.visited
-            ? 'rgba(246,239,228,0.78)'
-            : 'rgba(246,239,228,0.42)'
-    ctx.fillRect(x, y, cell, cell)
-    if (current) {
-      ctx.strokeStyle = '#ffb15a'
-      ctx.lineWidth = 2
-      ctx.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3)
-    }
-  }
-  void h
 }
 
 function drawParticle(ctx: CanvasRenderingContext2D, p: Particle): void {

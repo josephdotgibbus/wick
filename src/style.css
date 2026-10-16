@@ -726,6 +726,51 @@ fieldset {
   color: var(--dim);
 }
 
+#minimap {
+  position: absolute;
+  z-index: 2;
+  top: 92px;
+  right: 0;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  background: rgba(16, 12, 10, 0.94);
+  border: 1px solid rgba(240, 180, 90, 0.62);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.38);
+  pointer-events: none;
+}
+
+#minimap .kicker {
+  margin-bottom: 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+}
+
+#minimap-grid {
+  display: grid;
+  gap: 5px;
+  grid-auto-columns: 18px;
+  grid-auto-rows: 18px;
+}
+
+.map-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: rgba(246, 239, 228, 0.32);
+}
+
+.map-cell.is-seen { background: rgba(246, 239, 228, 0.82); }
+.map-cell.is-treasure { background: #f0b45a; }
+.map-cell.is-boss { background: #ff4d3a; }
+
+.map-cell.is-here {
+  background: #fff8ee;
+  box-shadow: 0 0 0 2px #ffb15a;
+}
+
+.map-cell.is-here.is-treasure { background: #f0b45a; }
+.map-cell.is-here.is-boss { background: #ff4d3a; }
+
 #inspect {
   position: fixed;
   z-index: 5;
@@ -757,6 +802,9 @@ fieldset {
   #hud.quiet .top { padding-right: 0; }
   h1 { font-size: 92px; }
   #boss { top: 132px; }
+  #minimap { top: 198px; }
+  #minimap-grid { grid-auto-columns: 14px; grid-auto-rows: 14px; }
+  .map-cell { width: 14px; height: 14px; }
 }
 
 .glyphs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; max-width: 220px; }

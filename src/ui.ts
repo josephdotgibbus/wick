@@ -80,6 +80,7 @@ let deadSig = ''
 let shellState = ''
 let loadSig = ''
 let inspectSig = ''
+let mapSig = ''
 
 export function sync(g: Game, save: Save, session: Session): void {
   const menu = g.state === 'menu'
@@ -205,6 +206,33 @@ function paintHud(g: Game): void {
   if (g.banner) {
     byId('banner-title').textContent = g.banner.title
     byId('banner-sub').textContent = g.banner.sub
+  }
+  paintMap(g)
+}
+
+function paintMap(g: Game): void {
+  const here = g.slide && g.slide.t > 0.2 ? g.slide.to : g.roomIndex
+  const sig = `${g.runSerial}:${here}:${g.rooms.map((room) => `${room.id}.${room.gx}.${room.gy}.${room.kind}.${room.visited ? 1 : 0}`).join()}`
+  if (sig === mapSig) return
+  mapSig = sig
+  const grid = byId('minimap-grid')
+  grid.replaceChildren()
+  let minX = Infinity
+  let minY = Infinity
+  for (const room of g.rooms) {
+    minX = Math.min(minX, room.gx)
+    minY = Math.min(minY, room.gy)
+  }
+  for (const room of g.rooms) {
+    const cell = document.createElement('i')
+    cell.className = 'map-cell'
+    if (room.kind === 'treasure') cell.classList.add('is-treasure')
+    else if (room.kind === 'boss') cell.classList.add('is-boss')
+    else if (room.visited || room.id === here) cell.classList.add('is-seen')
+    if (room.id === here) cell.classList.add('is-here')
+    cell.style.gridColumn = String(room.gx - minX + 1)
+    cell.style.gridRow = String(room.gy - minY + 1)
+    grid.append(cell)
   }
 }
 
