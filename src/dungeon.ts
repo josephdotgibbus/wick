@@ -28,7 +28,9 @@ export function buildFloor(seed: number, dungeon: number): FloorPlan {
   let cx = 0
   let cy = 0
   let from: Dir = 'w'
-  for (let i = 0; i < combatCount; i++) {
+  const branches = combatCount >= 5 ? 2 : 1
+  const spine = Math.max(2, combatCount - branches)
+  for (let i = 0; i < spine; i++) {
     const placed = stepFrom(rng, cell, cx, cy, from)
     if (!placed) break
     addRoom(rooms, cell, makeRoom(rng, dungeon, event, 'combat', placed.x, placed.y))
@@ -37,6 +39,7 @@ export function buildFloor(seed: number, dungeon: number): FloorPlan {
     cy = placed.y
     from = OPPOSITE[placed.dir]
   }
+  for (let i = 0; i < branches; i++) attachBranch(rng, rooms, cell, dungeon, event)
 
   const bossStep = stepFrom(rng, cell, cx, cy, from)
   if (bossStep) {
@@ -110,6 +113,8 @@ function addRoom(rooms: Room[], cell: Map<string, number>, room: Room): void {
   cell.set(`${room.gx},${room.gy}`, room.id)
 }
 
+const DIRS: Dir[] = ['n', 'e', 's', 'w']
+
 function stepFrom(
   rng: () => number,
   cell: Map<string, number>,
@@ -117,15 +122,46 @@ function stepFrom(
   y: number,
   from: Dir,
 ): { x: number; y: number; dir: Dir } | null {
-  const rank = (dir: Dir) => (dir === OPPOSITE[from] ? 0 : dir === from ? 2 : 1)
-  const ordered = (['n', 'e', 's', 'w'] as Dir[]).sort((a, b) => rank(a) - rank(b) || rng() - 0.5)
-  for (const dir of ordered) {
-    const nextX = x + STEP[dir].x
-    const nextY = y + STEP[dir].y
-    if (cell.has(`${nextX},${nextY}`)) continue
-    return { x: nextX, y: nextY, dir }
+  const forward = OPPOSITE[from]
+  const open: { dir: Dir; weight: number }[] = []
+  for (const dir of DIRS) {
+    if (dir === from) continue
+    if (cell.has(key(x + STEP[dir].x, y + STEP[dir].y))) continue
+    open.push({ dir, weight: dir === forward ? 2 : 5 })
   }
-  return null
+  if (!open.length) {
+    const back = from
+    if (cell.has(key(x + STEP[back].x, y + STEP[back].y))) return null
+    return { x: x + STEP[back].x, y: y + STEP[back].y, dir: back }
+  }
+  const dir = weightedDir(rng, open)
+  return { x: x + STEP[dir].x, y: y + STEP[dir].y, dir }
+}
+
+function attachBranch(
+  rng: () => number,
+  rooms: Room[],
+  cell: Map<string, number>,
+  dungeon: number,
+  event: EventId | null,
+): void {
+  const hosts = shuffle(
+    rng,
+    rooms.filter((room) => room.kind === 'combat' || room.kind === 'start'),
+  )
+  for (const host of hosts) {
+    const dirs = shuffle(
+      rng,
+      DIRS.filter((dir) => !cell.has(key(host.gx + STEP[dir].x, host.gy + STEP[dir].y))),
+    )
+    const dir = dirs[0]
+    if (!dir) continue
+    const x = host.gx + STEP[dir].x
+    const y = host.gy + STEP[dir].y
+    addRoom(rooms, cell, makeRoom(rng, dungeon, event, 'combat', x, y))
+    link(rooms, cell, host.gx, host.gy, dir, x, y)
+    return
+  }
 }
 
 function sideCell(
@@ -133,17 +169,41 @@ function sideCell(
   cell: Map<string, number>,
   hosts: Room[],
 ): { x: number; y: number; dir: Dir; fromX: number; fromY: number } | null {
-  const order = [...hosts].sort(() => rng() - 0.5)
-  for (const host of order) {
-    const dirs: Dir[] = ['n', 'e', 's', 'w']
-    for (const dir of dirs.sort(() => rng() - 0.5)) {
+  for (const host of shuffle(rng, hosts)) {
+    for (const dir of shuffle(rng, DIRS)) {
       const x = host.gx + STEP[dir].x
       const y = host.gy + STEP[dir].y
-      if (cell.has(`${x},${y}`)) continue
+      if (cell.has(key(x, y))) continue
       return { x, y, dir, fromX: host.gx, fromY: host.gy }
     }
   }
   return null
+}
+
+function key(x: number, y: number): string {
+  return `${x},${y}`
+}
+
+function weightedDir(rng: () => number, open: { dir: Dir; weight: number }[]): Dir {
+  let total = 0
+  for (const item of open) total += item.weight
+  let roll = rng() * total
+  for (const item of open) {
+    roll -= item.weight
+    if (roll < 0) return item.dir
+  }
+  return open[0]!.dir
+}
+
+function shuffle<T>(rng: () => number, items: readonly T[]): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    const swap = out[i]!
+    out[i] = out[j]!
+    out[j] = swap
+  }
+  return out
 }
 
 function link(rooms: Room[], cell: Map<string, number>, x: number, y: number, dir: Dir, nx: number, ny: number): void {
@@ -217,20 +277,20 @@ function pickShape(rng: () => number): Shape {
 }
 
 function stamp(shape: Shape): { w: number; h: number; tiles: TileId[] } {
-  if (shape === 'hall') return boxed(18, 7, () => {})
-  if (shape === 'wide') return boxed(16, 8, () => {})
-  if (shape === 'arena') return boxed(24, 16, () => {})
-  if (shape === 'chapel') return boxed(13, 10, () => {})
-  if (shape === 'hearth') return boxed(12, 9, () => {})
+  if (shape === 'hall') return boxed(20, 10, () => {})
+  if (shape === 'wide') return boxed(18, 11, () => {})
+  if (shape === 'arena') return boxed(26, 18, () => {})
+  if (shape === 'chapel') return boxed(16, 12, () => {})
+  if (shape === 'hearth') return boxed(15, 11, () => {})
   if (shape === 'ell') {
-    return boxed(14, 12, (tiles, w, h) => {
+    return boxed(17, 14, (tiles, w, h) => {
       for (let y = Math.floor(h * 0.55); y < h - 1; y++) {
         for (let x = Math.floor(w * 0.58); x < w - 1; x++) tiles[y * w + x] = 1
       }
     })
   }
   if (shape === 'pillars') {
-    return boxed(14, 11, (tiles, w, h) => {
+    return boxed(17, 13, (tiles, w, h) => {
       for (const [x, y] of [
         [4, 3],
         [9, 3],
@@ -242,13 +302,13 @@ function stamp(shape: Shape): { w: number; h: number; tiles: TileId[] } {
     })
   }
   if (shape === 'island') {
-    return boxed(15, 12, (tiles, w, h) => {
+    return boxed(18, 14, (tiles, w, h) => {
       const x0 = Math.floor(w / 2) - 1
       const y0 = Math.floor(h / 2) - 1
       for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 3; x++) tiles[y * w + x] = 1
     })
   }
-  return boxed(13, 10, () => {})
+  return boxed(16, 12, () => {})
 }
 
 function boxed(w: number, h: number, paint: (tiles: TileId[], w: number, h: number) => void): { w: number; h: number; tiles: TileId[] } {

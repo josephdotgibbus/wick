@@ -13,6 +13,9 @@
  *
  * Stat fields are added to the player. maxHeat raises the wick, which is your life.
  * Leave a field out to leave that stat alone.
+ *
+ * `icon` is the mark drawn on the pedestal and in the active slot.
+ * Known marks: crumb, splinter, wick, coal, dawn. Add a new one in drawUpgradeIcon.
  */
 export type Tier = 0 | 1 | 2 | 3 | 4
 
@@ -22,6 +25,8 @@ export interface UpgradeDef {
   description: string
   kind: 'passive' | 'active'
   tier: Tier
+  /** Mark drawn on the pedestal and, for an active, in the active slot. */
+  icon: string
   damage?: number
   tears?: number
   speed?: number
@@ -53,6 +58,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'A dry fleck of wick. Stand-in for a common passive.',
     kind: 'passive',
     tier: 0,
+    icon: 'crumb',
     damage: 0.35,
   },
   {
@@ -61,6 +67,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'A hot sliver under the flame. Stand-in for an uncommon passive.',
     kind: 'passive',
     tier: 1,
+    icon: 'splinter',
     speed: 0.06,
     tears: 0.12,
   },
@@ -70,6 +77,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'A cold thread in the flame. Use it to put 6 heat back. Stand-in for a tier 2 active.',
     kind: 'active',
     tier: 2,
+    icon: 'wick',
     charges: 3,
     use: 'blue',
   },
@@ -79,6 +87,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'A coal that keeps throwing sparks. Stand-in for a tier 3 passive.',
     kind: 'passive',
     tier: 3,
+    icon: 'coal',
     damage: 0.8,
     luck: 0.4,
   },
@@ -88,6 +97,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'A blank morning caught in wax. Use it to put 12 heat back. Stand-in for a tier 4 active.',
     kind: 'active',
     tier: 4,
+    icon: 'dawn',
     charges: 4,
     use: 'dawn',
   },

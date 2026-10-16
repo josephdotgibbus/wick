@@ -165,6 +165,8 @@ export interface Bullet {
   hit: number[]
   friendly: boolean
   child: boolean
+  /** Seconds left while a wall impact fades. 0 while the shot is still flying. */
+  fade: number
 }
 
 export interface Particle {

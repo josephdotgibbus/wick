@@ -329,12 +329,87 @@ function drawPedestal(ctx: CanvasRenderingContext2D, pedestal: Pedestal, t: numb
   const orbY = y - 22
   if (def.tier === 2 && pedestal.reveal > 0) drawTier2Glow(ctx, x, orbY, pedestal.reveal)
   ctx.beginPath()
-  ctx.arc(x, orbY, 6, 0, TAU)
-  ctx.fillStyle = gem
+  ctx.arc(x, orbY, 10, 0, TAU)
+  ctx.fillStyle = 'rgba(18, 12, 10, 0.72)'
   ctx.fill()
+  ctx.beginPath()
+  ctx.arc(x, orbY, 10, 0, TAU)
+  ctx.strokeStyle = gem
+  ctx.lineWidth = 1.25
+  ctx.stroke()
+  drawUpgradeIcon(ctx, def.icon, x, orbY, 15)
   if (def.tier === 4 && pedestal.reveal > 0) drawTier4Reveal(ctx, x, orbY, pedestal.reveal, t)
-  if (def.tier === 3) drawTier3Sparkles(ctx, x, orbY, pedestal.reveal, t)
+  if (def.tier === 3 && pedestal.reveal > 0) drawTier3Sparkles(ctx, x, orbY, pedestal.reveal, t)
   ctx.globalAlpha = 1
+}
+
+export function drawUpgradeIcon(ctx: CanvasRenderingContext2D, icon: string, x: number, y: number, size: number): void {
+  ctx.save()
+  ctx.translate(x, y)
+  const s = size
+  if (icon === 'crumb') {
+    ctx.fillStyle = '#d9cdc2'
+    ctx.beginPath()
+    ctx.moveTo(-s * 0.08, -s * 0.46)
+    ctx.lineTo(s * 0.44, -s * 0.02)
+    ctx.lineTo(s * 0.12, s * 0.42)
+    ctx.lineTo(-s * 0.42, s * 0.16)
+    ctx.closePath()
+    ctx.fill()
+  } else if (icon === 'splinter') {
+    ctx.rotate(-0.7)
+    ctx.fillStyle = '#f0b45a'
+    ctx.fillRect(-s * 0.09, -s * 0.48, s * 0.18, s * 0.96)
+    ctx.fillStyle = '#fff1d0'
+    ctx.fillRect(-s * 0.03, -s * 0.36, s * 0.05, s * 0.28)
+  } else if (icon === 'wick') {
+    ctx.strokeStyle = '#9eb7d8'
+    ctx.lineWidth = Math.max(1.6, s * 0.12)
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(0, s * 0.42)
+    ctx.quadraticCurveTo(s * 0.28, s * 0.05, 0, -s * 0.12)
+    ctx.stroke()
+    ctx.fillStyle = '#e7f1fb'
+    ctx.beginPath()
+    ctx.ellipse(0, -s * 0.3, s * 0.16, s * 0.22, 0, 0, TAU)
+    ctx.fill()
+  } else if (icon === 'coal') {
+    ctx.fillStyle = '#ffe1a3'
+    ctx.beginPath()
+    ctx.moveTo(0, -s * 0.44)
+    ctx.lineTo(s * 0.4, -s * 0.1)
+    ctx.lineTo(s * 0.26, s * 0.38)
+    ctx.lineTo(-s * 0.24, s * 0.4)
+    ctx.lineTo(-s * 0.44, -s * 0.02)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = '#fffaf2'
+    ctx.fillRect(-s * 0.06, -s * 0.06, s * 0.12, s * 0.12)
+  } else if (icon === 'dawn') {
+    ctx.fillStyle = '#fffaf2'
+    ctx.beginPath()
+    ctx.moveTo(0, -s * 0.5)
+    ctx.lineTo(s * 0.12, -s * 0.12)
+    ctx.lineTo(s * 0.5, 0)
+    ctx.lineTo(s * 0.12, s * 0.12)
+    ctx.lineTo(0, s * 0.5)
+    ctx.lineTo(-s * 0.12, s * 0.12)
+    ctx.lineTo(-s * 0.5, 0)
+    ctx.lineTo(-s * 0.12, -s * 0.12)
+    ctx.closePath()
+    ctx.fill()
+  } else {
+    ctx.fillStyle = '#ffe1a3'
+    ctx.beginPath()
+    ctx.moveTo(0, -s * 0.4)
+    ctx.lineTo(s * 0.4, 0)
+    ctx.lineTo(0, s * 0.4)
+    ctx.lineTo(-s * 0.4, 0)
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.restore()
 }
 
 function drawTier2Glow(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number): void {
@@ -667,6 +742,11 @@ function drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
   ctx.save()
   ctx.translate(b.x, b.y)
   ctx.rotate(ang)
+  if (b.fade > 0) {
+    const along = Math.max(0, b.fade / 0.14)
+    ctx.globalAlpha = along
+    ctx.scale(0.65 + 0.35 * along, 0.65 + 0.35 * along)
+  }
   if (b.friendly) {
     const span = b.max > 0 ? b.life / b.max : 1
     const fade = span > 0.34 ? 1 : Math.max(0, span / 0.34)

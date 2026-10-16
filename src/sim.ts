@@ -616,16 +616,28 @@ function stepShots(g: Game, dt: number): void {
     hit: [],
     friendly: true,
     child: false,
+    fade: 0,
   })
 }
 
 function stepBullets(g: Game, dt: number): void {
   const here = room(g)
   for (const b of g.bullets) {
+    if (b.fade > 0) {
+      b.fade -= dt
+      if (b.fade <= 0) b.life = 0
+      continue
+    }
     b.life -= dt
     b.x += b.vx * dt
     b.y += b.vy * dt
-    if (solidAt(here, b.x, b.y, false)) b.life = 0
+    if (solidAt(here, b.x, b.y, false)) {
+      const mag = Math.hypot(b.vx, b.vy) || 1
+      b.x -= (b.vx / mag) * 8
+      b.y -= (b.vy / mag) * 8
+      b.fade = 0.14
+      continue
+    }
     if (!b.friendly) {
       if (Math.hypot(b.x - g.player.x, b.y - g.player.y) < b.r + 11) {
         b.life = 0
@@ -656,6 +668,11 @@ function stepEnemies(g: Game, dt: number): void {
     if (e.dead) continue
     e.flash = Math.max(0, e.flash - dt)
     if (e.arrive < 1) e.arrive = Math.min(1, e.arrive + dt / 0.5)
+    if (e.arrive < 1) {
+      e.vx = 0
+      e.vy = 0
+      continue
+    }
     if (e.kind === 'boss') stepBoss(g, e, dt)
     else if (e.kind === 'cinder') stepCinder(g, e, dt, haste)
     else stepWisp(g, e, dt, haste)
@@ -795,6 +812,7 @@ function stepBoss(g: Game, e: Enemy, dt: number): void {
         hit: [],
         friendly: false,
         child: false,
+        fade: 0,
       })
       slot.cool = 1.4
       slot.warn = 0

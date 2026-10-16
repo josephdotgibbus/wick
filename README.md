@@ -27,11 +27,11 @@ A blessing can raise speed, damage, luck, or your max heat before the run. Reach
 - **Mouse:** the cursor pulls the flame. A touch drag does the same.
 - **Keys:** WASD, arrows, or a gamepad stick.
 - **Burst:** Space, click, or the Burst button. It spends a little heat and dashes through enemies.
-- **Active:** Q, or the Active button. The slot starts empty. Room clears charge it.
-- **Take:** E or F, or the button that appears when you are close. It takes a pedestal, opens a chest, or climbs the stair.
+- **Active:** Q, or the Active button. The slot starts empty and shows the item’s icon once you hold one. Room clears charge it.
+- **Take:** E, or the button that appears when you are close. E takes a passive. It also puts an active in the slot, opens a chest, or climbs the stair. F does the same.
 - **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss. Stats, or Tab, lists every stat.
 
-Wisps are small and red-eyed. Red enemies stop, draw a warning line, then fire a beam. Rocks and walls block the way. Pits drain heat. Bramble spends heat. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one. Enemies fade in and stay off the door you just walked through.
+Wisps are small and red-eyed. Red enemies stop, draw a warning line, then fire a beam. Rocks and walls block the way. Pits drain heat. Bramble spends heat. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one. Enemies fade in, wait half a second before they move or attack, and stay off the door you just walked through. A shot that hits a wall fades out instead of vanishing.
 
 The Briar waits in the largest room on the floor. Its spikes sit in its body and spin with it. They slow, swing out to a firing angle, and only then fly across the room. When it falls, its heat rushes into the wick and fills you back to the top.
 
@@ -51,11 +51,13 @@ Five stand-in upgrades are already on the shelf, one for each tier. A roll picks
 | 3 | Bright coal | Passive | Damage +0.8, luck +0.4 |
 | 4 | White dawn | Active | Restores 12 heat. Charges in 4 cleared rooms. |
 
-The first time you enter a room that holds a tier 4, the door slide flashes white, then a ray burst plays over that pedestal. A tier 3 throws sparkles while it sits. A tier 2 glows a faint blue for a moment when you first see it. Taking another active swaps the one in the slot.
+The first time you enter a room that holds a tier 4, the door slide flashes white, then a ray burst plays over that pedestal. A tier 3 throws sparkles for a moment when you first see it. A tier 2 glows a faint blue for a moment. Taking another active swaps the one in the slot, and the slot shows that item’s icon.
 
 ## Adding an upgrade
 
-Put an object in the `UPGRADES` list in `src/upgrades.ts` and set `tier` from 0 to 4. A passive changes stats. An active goes in the one active slot. Its `use` key is the name handled in `useActive` inside `src/sim.ts`. `blue` and `dawn` are the two stand-in uses.
+Put an object in the `UPGRADES` list in `src/upgrades.ts` and set `tier` from 0 to 4. Set `icon` to a mark drawn in `drawUpgradeIcon` (`crumb`, `splinter`, `wick`, `coal`, `dawn`, or a new name you add there). A passive changes stats and is taken with E. An active goes in the one active slot. Its `use` key is the name handled in `useActive` inside `src/sim.ts`. `blue` and `dawn` are the two stand-in uses.
+
+Rooms on a floor turn and sprout a side room or two, so the map is not a single eastward line.
 
 ## Run locally
 

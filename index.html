@@ -50,7 +50,10 @@
             <button id="loadout-btn" type="button" title="Tab">Stats</button>
             <button id="pause-btn" type="button" hidden>Pause</button>
           </div>
-          <button id="active" type="button">Active<small>Q</small></button>
+          <button id="active" type="button" title="Q">
+            <canvas id="active-icon" width="64" height="64" hidden></canvas>
+            <span class="slot-copy"><span id="active-label">Active</span><small id="active-meta">Q</small></span>
+          </button>
           <button id="take" type="button" hidden>Take<small>E</small></button>
           <button id="burst" type="button">Burst</button>
         <button id="keycap" type="button">
@@ -105,7 +108,7 @@
         <div id="empty-records" class="note">No runs yet.</div>
         <dl class="records" id="records" hidden></dl>
         <ol id="history" class="history" hidden></ol>
-        <p class="keys">Mouse or keys before the run. Burst spends heat and dashes. Q uses the active item. E takes, opens, or climbs. Tab opens every stat. Esc pauses. M mutes. The map sits at the upper right.</p>
+        <p class="keys">Mouse or keys before the run. Burst spends heat and dashes. Q uses the active item. E takes a passive, swaps an active, opens a chest, or climbs. Tab opens every stat. Esc pauses. M mutes. The map sits at the upper right.</p>
       </section>
 
       <section id="panel-steer" class="panel" hidden>

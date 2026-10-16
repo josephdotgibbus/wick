@@ -734,6 +734,30 @@ fieldset {
   justify-content: center;
   line-height: 1.05;
 }
+#active {
+  flex-direction: row;
+  gap: 8px;
+  min-width: 108px;
+}
+#active-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+#active.has-item #active-icon { display: block; }
+#active:not(.ready) #active-icon { opacity: 0.55; }
+#active .slot-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+#active-label {
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 #active small, #take small {
   margin-top: 4px;
   font-family: var(--sans);

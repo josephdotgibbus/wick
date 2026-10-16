@@ -4,6 +4,7 @@ import { dailyKey, dailySeed, formatSeed } from './rng.ts'
 import type { Save } from './storage.ts'
 import { todayBest } from './storage.ts'
 import type { Game } from './types.ts'
+import { drawUpgradeIcon } from './render.ts'
 import { upgradeById } from './upgrades.ts'
 
 export interface Session {
@@ -186,10 +187,7 @@ function paintHud(g: Game): void {
   byId('seed-mini').textContent = g.seedLabel
   byId('hint').textContent = g.hint
   byId('coins').textContent = g.coins === 1 ? '1 coin' : `${g.coins} coins`
-  const active = byId('active')
-  active.innerHTML = g.active
-    ? `${escape(g.active.name)}<small>${g.active.charge}/${g.active.charges}</small>`
-    : 'Active<small>Empty</small>'
+  paintActive(g)
   const take = byId('take')
   const label = g.near === 'chest' ? 'Open' : g.near === 'stair' ? 'Descend' : 'Take'
   take.hidden = g.near === null || g.state !== 'playing'
@@ -304,15 +302,43 @@ function paintInspect(g: Game): void {
         ? swapping
           ? 'You can hold one active item. E swaps this in and locks the other two.'
           : 'You can hold one active item. E puts this in the slot and locks the other two.'
-        : 'E takes this and locks the other two. Passives stay for the run.'
+        : 'Press E to take this. Passives stay for the run.'
   const sig = `${showPanel}:${copy.name}:${note}:${g.nearId ?? ''}`
   panel.hidden = !showPanel
   if (!showPanel || sig === inspectSig) return
   inspectSig = sig
-  byId('inspect-kicker').textContent = def ? tierLabel(def) : 'Pedestal'
+  byId('inspect-kicker').textContent = def ? (def.kind === 'passive' ? `${tierLabel(def)} · E` : tierLabel(def)) : 'Pedestal'
   byId('inspect-name').textContent = copy.name
   byId('inspect-text').textContent = copy.text
   byId('inspect-detail').textContent = [copy.detail, note].filter(Boolean).join(' ')
+}
+
+function paintActive(g: Game): void {
+  const button = byId('active')
+  const icon = byId<HTMLCanvasElement>('active-icon')
+  const label = byId('active-label')
+  const meta = byId('active-meta')
+  const def = g.active ? upgradeById(g.active.id) : undefined
+  const ready = !!g.active && g.active.charge >= g.active.charges
+  button.classList.toggle('has-item', !!g.active)
+  button.classList.toggle('ready', ready)
+  if (!g.active) {
+    icon.hidden = true
+    icon.dataset.icon = ''
+    label.textContent = 'Active'
+    meta.textContent = 'Q'
+    return
+  }
+  icon.hidden = false
+  label.textContent = g.active.name
+  meta.textContent = `${g.active.charge}/${g.active.charges}`
+  const mark = def?.icon ?? ''
+  if (icon.dataset.icon === mark) return
+  icon.dataset.icon = mark
+  const ctx = icon.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, icon.width, icon.height)
+  drawUpgradeIcon(ctx, mark, icon.width / 2, icon.height / 2, 28)
 }
 
 function pauseLine(g: Game): string {
@@ -328,10 +354,6 @@ function addRecord(dl: HTMLElement, label: string, value: string): void {
   const dd = document.createElement('dd')
   dd.textContent = value
   dl.append(dt, dd)
-}
-
-function escape(text: string): string {
-  return text.replace(/[&<>]/g, (ch) => (ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : '&gt;'))
 }
 
 function show(id: string, on: boolean): void {
