@@ -2,7 +2,7 @@
 
 A dungeon of rooms. You are a flame in the dark. Heat is your life: it burns down on its own, touching an enemy spends more, and sparks fill it back up. There is no score.
 
-Each room holds its own enemies. The doors stay shut until they are dead. A cleared room has a chance to leave a coin or a spark. Shots fire at the nearest enemy by themselves. The last room is the Briar. After it falls, a chest and a stair appear. The stair starts the next dungeon. A map of the dungeon sits at the upper right. Walking through a door pulls the view back so both rooms stay on screen, then settles into the next one.
+Each room holds its own enemies. The doors stay shut until they are dead. A cleared room has a chance to leave a coin or a spark. Shots fire at the nearest enemy by themselves. The last room is the Briar. After it falls, a chest and a stair appear. The stair starts the next dungeon. A map of the dungeon sits at the upper right. Walking through a door pulls the view back so both rooms stay on screen. The room you leave fades to black, and the room you enter fades in from black.
 
 One treasure room on each dungeon holds three pedestals. Stand next to one and a small panel shows the name, the tier, and what it would do. You can take only one. A passive changes your stats and stays. An active fills the one slot. A later active replaces it.
 
@@ -31,7 +31,7 @@ Kills leave a small spark. Picking one up restores 7 heat.
 - **Take:** E, or the button that appears when you are close. E takes a passive. It also puts an active in the slot, opens a chest, or climbs the stair. F does the same.
 - **Pause:** Pause, Esc, or P. M mutes. R retries the same seed after a loss. Stats, or Tab, lists every stat.
 
-Wisps are small and red-eyed. Red enemies stop, draw a warning line, then fire a beam. Rocks and walls block the way. Pits drain heat. Bramble spends heat. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one. Enemies fade in, wait half a second before they move or attack, and stay off the door you just walked through. A shot that hits a wall fades out instead of vanishing.
+Wisps are small and red-eyed. A great wisp is that same black shape at twice the size, with twice the health, and it moves at half speed. Red enemies stop, draw a warning line, then fire a beam. Rocks and walls block the way. Pits drain heat. Bramble spends heat. From dungeon 2 on, half of the dungeons add a twist, and the banner says which one. Enemies are already standing in a room as it fades in. They wait half a second before they move or attack, and they stay off the door you just walked through. A shot that hits a wall fades out instead of vanishing.
 
 The Briar waits in the largest room on the floor. Its spikes sit in its body and spin with it. They slow, swing out to a firing angle, and only then fly across the room. When it falls, its heat rushes into the wick and fills you back to the top.
 

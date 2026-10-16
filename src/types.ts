@@ -1,6 +1,6 @@
 export const TILE = 32
 
-export type Kind = 'wisp' | 'cinder' | 'boss'
+export type Kind = 'wisp' | 'great' | 'cinder' | 'boss'
 
 export type Dir = 'n' | 'e' | 's' | 'w'
 
@@ -304,6 +304,9 @@ export interface Game {
   doorHold: number
   brambleCd: number
   enemies: Enemy[]
+  /** Enemies of the room being entered, drawn during the door fade before they are live. */
+  incoming: Enemy[]
+  incomingRoom: number
   bullets: Bullet[]
   pickups: Pickup[]
   particles: Particle[]

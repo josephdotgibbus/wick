@@ -57,8 +57,9 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
 
   if (menu) drawGround(ctx, g.player.x, g.player.y, w, h)
   else if (pose) {
-    if (pose.u < 1) drawRoom(ctx, pose.from, view.wall, 0, 0)
-    drawRoom(ctx, pose.to, view.wall, pose.off.x, pose.off.y)
+    const entering = g.rooms[g.incomingRoom] === pose.to ? g.incoming : []
+    if (pose.u < 1) drawFadedRoom(ctx, pose.from, g.enemies, 0, 0, 1 - pose.u, view.wall)
+    drawFadedRoom(ctx, pose.to, entering, pose.off.x, pose.off.y, pose.u, view.wall)
   } else if (here) {
     drawRoom(ctx, here, view.wall, 0, 0)
   }
@@ -219,6 +220,28 @@ function oppositeDir(dir: Dir): Dir {
   return 'e'
 }
 
+function drawFadedRoom(
+  ctx: CanvasRenderingContext2D,
+  room: Room,
+  enemies: Enemy[],
+  ox: number,
+  oy: number,
+  alpha: number,
+  t: number,
+): void {
+  if (alpha <= 0.004) return
+  ctx.save()
+  ctx.globalAlpha *= alpha
+  drawRoom(ctx, room, t, ox, oy)
+  if (enemies.length) {
+    ctx.save()
+    ctx.translate(ox, oy)
+    for (const e of enemies) drawEnemy(ctx, e, t)
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
 function drawRoom(ctx: CanvasRenderingContext2D, here: Room, t: number, ox: number, oy: number): void {
   ctx.save()
   ctx.translate(ox, oy)
@@ -340,7 +363,6 @@ function drawPedestal(ctx: CanvasRenderingContext2D, pedestal: Pedestal, t: numb
   drawUpgradeIcon(ctx, def.icon, x, orbY, 15)
   if (def.tier === 4 && pedestal.reveal > 0) drawTier4Reveal(ctx, x, orbY, pedestal.reveal, t)
   if (def.tier === 3 && pedestal.reveal > 0) drawTier3Sparkles(ctx, x, orbY, pedestal.reveal, t)
-  ctx.globalAlpha = 1
 }
 
 export function drawUpgradeIcon(ctx: CanvasRenderingContext2D, icon: string, x: number, y: number, size: number): void {
@@ -432,6 +454,7 @@ function drawTier2Glow(ctx: CanvasRenderingContext2D, x: number, y: number, reve
 function drawTier3Sparkles(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number, t: number): void {
   const burst = reveal > 0 ? reveal / 1.5 : 0
   const count = burst > 0.05 ? 12 : 5
+  const kept = ctx.globalAlpha
   for (let i = 0; i < count; i++) {
     const ang = t * (burst > 0.05 ? 2.6 : 0.85) + (i * TAU) / count
     const orbit = 11 + (i % 3) * 4
@@ -439,7 +462,7 @@ function drawTier3Sparkles(ctx: CanvasRenderingContext2D, x: number, y: number, 
     const px = x + Math.cos(ang) * (orbit + extra)
     const py = y + Math.sin(ang) * (orbit + extra) * 0.7
     const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 6 + i * 1.7))
-    ctx.globalAlpha = burst > 0.05 ? 0.5 + 0.5 * tw : 0.28 + 0.35 * tw
+    ctx.globalAlpha = kept * (burst > 0.05 ? 0.5 + 0.5 * tw : 0.28 + 0.35 * tw)
     ctx.fillStyle = i % 2 === 0 ? '#fffaf2' : '#ffe1a3'
     ctx.save()
     ctx.translate(px, py)
@@ -448,12 +471,13 @@ function drawTier3Sparkles(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.fillRect(-s, -s, s * 2, s * 2)
     ctx.restore()
   }
-  ctx.globalAlpha = 1
+  ctx.globalAlpha = kept
 }
 
 function drawTier4Reveal(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number, t: number): void {
   const life = Math.min(1, Math.max(0, reveal / 2))
   const fade = Math.sin(life * Math.PI)
+  const kept = ctx.globalAlpha
   ctx.save()
   ctx.translate(x, y)
   const column = ctx.createLinearGradient(0, 8, 0, -78)
@@ -466,7 +490,7 @@ function drawTier4Reveal(ctx: CanvasRenderingContext2D, x: number, y: number, re
   for (let i = 0; i < 12; i++) {
     const ang = (i / 12) * TAU
     const len = 18 + fade * 34 + (i % 3) * 6
-    ctx.globalAlpha = (0.25 + (i % 2) * 0.25) * fade
+    ctx.globalAlpha = kept * (0.25 + (i % 2) * 0.25) * fade
     ctx.strokeStyle = i % 3 === 0 ? '#fffaf2' : '#ffe7b0'
     ctx.lineWidth = i % 2 === 0 ? 1.6 : 1
     ctx.beginPath()
@@ -483,7 +507,6 @@ function drawTier4Reveal(ctx: CanvasRenderingContext2D, x: number, y: number, re
     ctx.lineWidth = 1.6
     ctx.stroke()
   }
-  ctx.globalAlpha = 1
 }
 
 function drawChest(ctx: CanvasRenderingContext2D, x: number, y: number, opened: boolean, t: number): void {
@@ -492,10 +515,11 @@ function drawChest(ctx: CanvasRenderingContext2D, x: number, y: number, opened: 
   ctx.fillStyle = opened ? '#2a201c' : '#f0b45a'
   ctx.fillRect(x - 12, y - 10, 24, 5)
   if (!opened) {
-    ctx.globalAlpha = 0.35 + Math.sin(t * 3) * 0.15
+    ctx.save()
+    ctx.globalAlpha *= 0.35 + Math.sin(t * 3) * 0.15
     ctx.fillStyle = '#ffe1a3'
     ctx.fillRect(x - 2, y - 4, 4, 8)
-    ctx.globalAlpha = 1
+    ctx.restore()
   }
 }
 
@@ -640,14 +664,8 @@ function drawDecor(ctx: CanvasRenderingContext2D, d: Decor, t: number): void {
 }
 
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, t: number): void {
-  const fading = e.arrive < 1
-  if (fading) {
-    ctx.save()
-    ctx.globalAlpha *= e.arrive
-  }
   if (e.kind === 'boss') drawBoss(ctx, e, t)
   else drawShadow(ctx, e, t, e.kind === 'cinder')
-  if (fading) ctx.restore()
 }
 
 function drawShadow(ctx: CanvasRenderingContext2D, e: Enemy, t: number, red: boolean): void {
@@ -660,13 +678,14 @@ function drawShadow(ctx: CanvasRenderingContext2D, e: Enemy, t: number, red: boo
   ctx.arc(e.x, e.y, e.r, 0, TAU)
   ctx.fillStyle = flash ? '#f6efe4' : red ? '#6a1a14' : '#161214'
   ctx.fill()
+  const scale = e.r / 9
   ctx.strokeStyle = red ? 'rgba(255, 90, 60, 0.55)' : 'rgba(80, 70, 74, 0.8)'
-  ctx.lineWidth = 1.5
+  ctx.lineWidth = 1.5 * scale
   ctx.stroke()
   const blink = Math.sin(t * 2.2 + e.id) > 0.92
-  const eye = blink ? 0.45 : 3
+  const eye = (blink ? 0.45 : 3) * scale
   ctx.strokeStyle = red ? '#ffb0a4' : '#ff5a4a'
-  ctx.lineWidth = 1.2
+  ctx.lineWidth = 1.2 * scale
   ctx.beginPath()
   ctx.moveTo(e.x - e.r * 0.55, e.y - e.r * 0.42)
   ctx.lineTo(e.x - e.r * 0.12, e.y - e.r * 0.22)
@@ -675,7 +694,7 @@ function drawShadow(ctx: CanvasRenderingContext2D, e: Enemy, t: number, red: boo
   ctx.stroke()
   ctx.fillStyle = red ? '#ffd0c8' : '#ff3b32'
   ctx.shadowColor = '#ff2a22'
-  ctx.shadowBlur = 10
+  ctx.shadowBlur = 10 * scale
   ctx.beginPath()
   ctx.ellipse(e.x - e.r * 0.32, e.y - e.r * 0.02, eye * 0.72, eye, 0.4, 0, TAU)
   ctx.ellipse(e.x + e.r * 0.32, e.y - e.r * 0.02, eye * 0.72, eye, -0.4, 0, TAU)
@@ -871,7 +890,7 @@ function drawMarkers(ctx: CanvasRenderingContext2D, g: Game, w: number, h: numbe
     const y = h / 2 + Math.sin(ang) * (Math.min(w, h) * 0.38)
     ctx.fillStyle = e.kind === 'cinder' ? '#ff4d3a' : e.kind === 'boss' ? '#f6efe4' : '#8a7c76'
     ctx.beginPath()
-    ctx.arc(x, y, e.kind === 'boss' ? 5 : 3, 0, TAU)
+    ctx.arc(x, y, e.kind === 'boss' ? 5 : e.kind === 'great' ? 4.5 : 3, 0, TAU)
     ctx.fill()
   }
 }

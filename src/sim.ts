@@ -67,6 +67,8 @@ export function createGame(): Game {
     doorHold: 0,
     brambleCd: 0,
     enemies: [],
+    incoming: [],
+    incomingRoom: -1,
     bullets: [],
     pickups: [],
     particles: [],
@@ -248,6 +250,8 @@ function beginDungeon(g: Game, stair: boolean): void {
   g.rekindle = 0
   g.rekindleMax = 0
   g.enemies = []
+  g.incoming = []
+  g.incomingRoom = -1
   g.bullets = []
   g.beams = []
   g.warnings = []
@@ -282,6 +286,9 @@ function goTo(g: Game, index: number, from: Dir): void {
   const here = room(g)
   const first = !here.visited
   here.visited = true
+  const carried = g.incomingRoom === index ? g.incoming : null
+  g.incoming = []
+  g.incomingRoom = -1
   g.enemies = []
   g.bullets = []
   g.beams = []
@@ -289,7 +296,8 @@ function goTo(g: Game, index: number, from: Dir): void {
   g.pickups = here.coins
   if (!here.spawned) {
     here.spawned = true
-    for (const spawn of here.spawns) g.enemies.push(makeEnemy(g, spawn.kind, spawn.x, spawn.y))
+    if (carried && carried.length) g.enemies = carried
+    else for (const spawn of here.spawns) g.enemies.push(makeEnemy(g, spawn.kind, spawn.x, spawn.y))
     if (here.kind === 'boss') g.events.push({ type: 'boss' })
   }
   const at = entryOf(here, from)
@@ -828,12 +836,15 @@ function chase(g: Game, e: Enemy, dt: number, speed: number): void {
 function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
   const strong = g.event === 'strong' ? 1.28 : 1
   const rank = g.dungeon
+  const wispHp = (8 + rank * 2) * strong * (2 / 3)
   const base =
     kind === 'cinder'
       ? { hp: (14 + rank * 3) * strong * (2 / 3), r: 11, speed: 58, touch: 11, name: 'Cinder wisp' }
       : kind === 'boss'
         ? { hp: (120 + rank * 48) * strong * (2 / 3), r: 36, speed: 34 + rank, touch: 16, name: 'The Briar' }
-        : { hp: (8 + rank * 2) * strong * (2 / 3), r: 9, speed: 72, touch: 9, name: 'Wisp' }
+        : kind === 'great'
+          ? { hp: wispHp * 2, r: 18, speed: 36, touch: 9, name: 'Great wisp' }
+          : { hp: wispHp, r: 9, speed: 72, touch: 9, name: 'Wisp' }
   return {
     id: g.nextId++,
     kind,
@@ -952,6 +963,11 @@ function tryDoor(g: Game): void {
     if (dest && roomHasUnseenTier4(dest)) {
       g.whiteFlash = 0.7
       g.whiteFlashMax = 0.7
+    }
+    g.incoming = []
+    g.incomingRoom = door.to
+    if (dest && !dest.spawned) {
+      for (const spawn of dest.spawns) g.incoming.push(makeEnemy(g, spawn.kind, spawn.x, spawn.y))
     }
     g.slide = { from: g.roomIndex, to: door.to, dir: door.dir, t: 0, settled: false }
     return
@@ -1073,7 +1089,7 @@ function leaveTrail(g: Game, e: Enemy): void {
   if (e.kind === 'boss' || e.arrive < 1) return
   const moved = Math.hypot(dx, dy)
   if (moved < 0.8) return
-  const size = e.kind === 'cinder' ? 6.5 : 8
+  const size = e.kind === 'cinder' ? 6.5 : e.kind === 'great' ? 14 : 8
   const back = e.r + size * 0.55
   g.particles.push({
     x: e.x - (dx / moved) * back,

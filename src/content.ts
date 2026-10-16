@@ -73,6 +73,7 @@ export function lightOf(heat: number, maxHeat: number, base: number): number {
 
 export const KIND_COLOR: Record<Kind, string> = {
   wisp: '#c9b8ae',
+  great: '#8a7c76',
   cinder: '#ff4d3a',
   boss: '#f2e6dc',
 }
@@ -85,6 +86,7 @@ export function eulogyFor(cause: string): string {
   if (cause === 'a spike') return 'A Briar spike took the last of the heat.'
   if (cause === 'you let go') return 'You ended the run.'
   if (cause === 'Wisp') return 'A wisp took the last of the heat.'
+  if (cause === 'Great wisp') return 'A great wisp took the last of the heat.'
   if (cause === 'Cinder wisp') return 'A red enemy took the last of the heat.'
   if (cause === 'The Briar') return 'The Briar took the last of the heat.'
   if (!cause) return 'The flame went out.'

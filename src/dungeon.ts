@@ -380,7 +380,8 @@ function enemySpawns(rng: () => number, room: Room, dungeon: number, count: numb
     const pick = open.splice(Math.floor(rng() * open.length), 1)[0]!
     const at = tileCenter(room, pick)
     const cinder = dungeon >= 2 && rng() < Math.min(0.4, 0.12 + dungeon * 0.05)
-    spawns.push({ kind: cinder ? 'cinder' : 'wisp', x: at.x, y: at.y })
+    const great = !cinder && rng() < 0.25
+    spawns.push({ kind: cinder ? 'cinder' : great ? 'great' : 'wisp', x: at.x, y: at.y })
   }
   return spawns
 }
