@@ -1,4 +1,4 @@
-import { BLESSINGS, blessingById, EVENT_COPY, pedestalCopy, statLines } from './content.ts'
+import { BLESSINGS, blessingById, EVENT_COPY, pedestalCopy, statLines, tierLabel } from './content.ts'
 import { formatTime } from './format.ts'
 import { dailyKey, dailySeed, formatSeed } from './rng.ts'
 import type { Save } from './storage.ts'
@@ -250,18 +250,19 @@ function paintStats(g: Game): void {
   list.replaceChildren()
   if (!g.passives.length && !g.active) {
     const li = document.createElement('li')
-    li.textContent = 'No upgrades yet. Treasure pedestals stay bare until you add some in src/upgrades.ts.'
+    li.textContent = 'No upgrades yet.'
     list.append(li)
   }
   for (const id of g.passives) {
     const def = upgradeById(id)
     const li = document.createElement('li')
-    li.textContent = def ? `${def.name}. ${def.description}` : id
+    li.textContent = def ? `${def.name} · Tier ${def.tier}. ${def.description}` : id
     list.append(li)
   }
+  const held = g.active ? upgradeById(g.active.id) : undefined
   byId('active-line').textContent = g.active
-    ? `Active: ${g.active.name}. ${g.active.description} Charge ${g.active.charge}/${g.active.charges}.`
-    : 'Active slot is empty.'
+    ? `Active: ${g.active.name}${held ? ` · Tier ${held.tier}` : ''}. ${g.active.description} Charge ${g.active.charge}/${g.active.charges}.`
+    : 'Active slot is empty. You can hold one.'
 }
 
 function paintDead(g: Game, save: Save, session: Session): void {
@@ -294,18 +295,21 @@ function paintInspect(g: Game): void {
   const pedestal = here?.pedestals.find((item) => item.upgradeId === g.nearId) ?? here?.pedestals[0]
   const def = g.nearId ? upgradeById(g.nearId) : undefined
   const copy = pedestal?.upgradeId ? pedestalCopy(def) : pedestalCopy(undefined)
+  const swapping = def?.kind === 'active' && !!g.active && g.active.id !== def.id
   const note = !def
     ? 'The shelf is empty until you add an upgrade in src/upgrades.ts.'
     : here?.treasureTaken
       ? 'You already took one.'
       : def.kind === 'active'
-        ? 'E puts this in the active slot and locks the other two.'
-        : 'E takes this and locks the other two.'
+        ? swapping
+          ? 'You can hold one active item. E swaps this in and locks the other two.'
+          : 'You can hold one active item. E puts this in the slot and locks the other two.'
+        : 'E takes this and locks the other two. Passives stay for the run.'
   const sig = `${showPanel}:${copy.name}:${note}:${g.nearId ?? ''}`
   panel.hidden = !showPanel
   if (!showPanel || sig === inspectSig) return
   inspectSig = sig
-  byId('inspect-kicker').textContent = def?.kind === 'active' ? 'Active item' : 'Pedestal'
+  byId('inspect-kicker').textContent = def ? tierLabel(def) : 'Pedestal'
   byId('inspect-name').textContent = copy.name
   byId('inspect-text').textContent = copy.text
   byId('inspect-detail').textContent = [copy.detail, note].filter(Boolean).join(' ')

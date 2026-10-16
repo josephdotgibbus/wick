@@ -60,6 +60,11 @@ export function pedestalCopy(def: UpgradeDef | undefined): { name: string; text:
   return { name: def.name, text: def.description, detail: upgradeDetail(def) }
 }
 
+export function tierLabel(def: UpgradeDef): string {
+  const kind = def.kind === 'active' ? 'Active' : 'Passive'
+  return `${kind} · Tier ${def.tier}`
+}
+
 export const EVENT_COPY: Record<EventId, { title: string; sub: string }> = {
   strong: { title: 'Tougher enemies', sub: 'They have more health, and a touch spends more heat.' },
   slip: { title: 'Slick ground', sub: 'You slide. Letting go does not stop you at once.' },

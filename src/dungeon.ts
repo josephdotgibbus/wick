@@ -1,7 +1,7 @@
 import { mulberry32 } from './rng.ts'
 import type { Dir, Door, EventId, Kind, Room, Spawn, TileId } from './types.ts'
 import { TILE } from './types.ts'
-import { UPGRADES } from './upgrades.ts'
+import { rollUpgrade } from './upgrades.ts'
 
 const OPPOSITE: Record<Dir, Dir> = { n: 's', s: 'n', e: 'w', w: 'e' }
 const STEP: Record<Dir, { x: number; y: number }> = {
@@ -363,18 +363,17 @@ function stockTreasure(rng: () => number, room: Room): void {
     { x: room.w * 0.5, y: room.h * 0.34 },
     { x: room.w * 0.72, y: room.h * 0.42 },
   ]
-  const bag = [...UPGRADES]
+  const avoid = new Set<string>()
   for (const spot of spots) {
-    let upgradeId: string | null = null
-    if (bag.length) {
-      const index = Math.floor(rng() * bag.length)
-      upgradeId = bag.splice(index, 1)[0]!.id
-    }
+    const def = rollUpgrade(rng, avoid)
+    if (def) avoid.add(def.id)
     room.pedestals.push({
       x: spot.x * TILE,
       y: spot.y * TILE,
-      upgradeId,
+      upgradeId: def?.id ?? null,
       taken: false,
+      seen: false,
+      reveal: 0,
     })
   }
 }

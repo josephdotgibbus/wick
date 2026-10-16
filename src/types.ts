@@ -53,6 +53,10 @@ export interface Pedestal {
   y: number
   upgradeId: string | null
   taken: boolean
+  /** True after the player has arrived in this room and the first-sight effect has started. */
+  seen: boolean
+  /** Seconds left on the first-sight effect. Tier 2, 3, and 4 use it. */
+  reveal: number
 }
 
 export interface Chest {
@@ -318,6 +322,9 @@ export interface Game {
   snuff: number
   shake: number
   hurtFlash: number
+  /** Seconds left on the white flash that plays when a room holds an unseen tier 4. */
+  whiteFlash: number
+  whiteFlashMax: number
   events: GameEvent[]
   eulogy: string
 }

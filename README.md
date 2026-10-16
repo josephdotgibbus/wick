@@ -4,7 +4,7 @@ A dungeon of rooms. You are a flame in the dark. Heat is your life: it burns dow
 
 Each room holds its own enemies. The doors stay shut until they are dead. A cleared room has a chance to leave a coin or a spark. Shots fire at the nearest enemy by themselves. The last room is the Briar. After it falls, a chest and a stair appear. The stair starts the next dungeon. A map of the dungeon sits at the upper right. Walking through a door pulls the view back so both rooms stay on screen, then settles into the next one.
 
-One treasure room on each dungeon holds three pedestals. Stand next to one and a small panel shows what it would do. You can take only one. The shelf is empty until you write upgrades in `src/upgrades.ts`.
+One treasure room on each dungeon holds three pedestals. Stand next to one and a small panel shows the name, the tier, and what it would do. You can take only one. A passive changes your stats and stays. An active fills the one slot. A later active replaces it.
 
 ## Stats
 
@@ -39,9 +39,23 @@ Coins and chests slide, bounce off walls, and pass through enemies. A coin glint
 
 The same seed repeats the rooms, the coins, and where enemies stand. How you move can still differ. Everything is saved in this browser.
 
+## Upgrades
+
+Five stand-in upgrades are already on the shelf, one for each tier. A roll picks the tier first, then an item of that tier. The chances are tier 0 at 46%, tier 1 at 28%, tier 2 at 15%, tier 3 at 8%, and tier 4 at 3%. The three pedestals in a room will not repeat the same upgrade. A chest uses the same roll.
+
+| Tier | Upgrade | Kind | What it does |
+| --- | --- | --- | --- |
+| 0 | Cinder crumb | Passive | Damage +0.35 |
+| 1 | Warm splinter | Passive | Speed +0.06, tears +0.12 |
+| 2 | Blue wick | Active | Restores 6 heat. Charges in 3 cleared rooms. |
+| 3 | Bright coal | Passive | Damage +0.8, luck +0.4 |
+| 4 | White dawn | Active | Restores 12 heat. Charges in 4 cleared rooms. |
+
+The first time you enter a room that holds a tier 4, the door slide flashes white, then a ray burst plays over that pedestal. A tier 3 throws sparkles while it sits. A tier 2 glows a faint blue for a moment when you first see it. Taking another active swaps the one in the slot.
+
 ## Adding an upgrade
 
-Put an object in the `UPGRADES` list in `src/upgrades.ts`. A passive changes stats. An active goes in the one active slot. Its `use` key is the name you can handle later in `useActive` inside `src/sim.ts`. Until you add one, pedestals stay bare and chests pay coins only.
+Put an object in the `UPGRADES` list in `src/upgrades.ts` and set `tier` from 0 to 4. A passive changes stats. An active goes in the one active slot. Its `use` key is the name handled in `useActive` inside `src/sim.ts`. `blue` and `dawn` are the two stand-in uses.
 
 ## Run locally
 

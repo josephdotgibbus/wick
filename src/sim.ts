@@ -15,7 +15,7 @@ import type {
   SpikeSlot,
 } from './types.ts'
 import { SLIDE_TIME, TILE } from './types.ts'
-import { UPGRADES, upgradeById, type UpgradeDef } from './upgrades.ts'
+import { rollUpgrade, upgradeById, type UpgradeDef } from './upgrades.ts'
 
 const TAU = Math.PI * 2
 
@@ -87,6 +87,8 @@ export function createGame(): Game {
     snuff: 1,
     shake: 0,
     hurtFlash: 0,
+    whiteFlash: 0,
+    whiteFlashMax: 0,
     events: [],
     eulogy: '',
   }
@@ -204,6 +206,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
   if (g.slide) {
     stepSlide(g, dt)
     stepRekindle(g, dt)
+    stepRoomFx(g, dt)
     stepCosmetics(g, dt)
     return
   }
@@ -217,6 +220,7 @@ export function tick(g: Game, input: FrameInput, dt: number): void {
   g.brambleCd = Math.max(0, g.brambleCd - dt)
   g.shake = Math.max(0, g.shake - dt * 28)
   g.hurtFlash = Math.max(0, g.hurtFlash - dt)
+  stepRoomFx(g, dt)
   if (g.dungeon > 1) g.hint = ''
 
   stepPlayer(g, input, dt)
@@ -301,6 +305,7 @@ function goTo(g: Game, index: number, from: Dir): void {
   g.player.vy = 0
   shoveEnemies(g)
   g.doorHold = 0.45
+  noticePedestals(here)
   if (first && here.kind === 'boss') {
     g.banner = {
       title: 'The Briar',
@@ -462,6 +467,16 @@ function useActive(g: Game): void {
   }
   g.active.charge = 0
   floater(g, g.player.x, g.player.y - 18, g.active.name, '#ffe1a3')
+  if (g.active.use === 'blue') {
+    g.heat = Math.min(g.maxHeat, g.heat + 6)
+    puff(g, g.player.x, g.player.y, 'rgba(158,183,216,0.9)', 10, 80, 0.35, 2.2)
+    return
+  }
+  if (g.active.use === 'dawn') {
+    g.heat = Math.min(g.maxHeat, g.heat + 12)
+    puff(g, g.player.x, g.player.y, 'rgba(255,250,242,0.95)', 14, 110, 0.45, 2.4)
+    return
+  }
   puff(g, g.player.x, g.player.y, 'rgba(255,225,163,0.8)', 8, 70, 0.3, 2)
 }
 
@@ -477,7 +492,7 @@ function interact(g: Game): void {
     if (!def) return
     here.treasureTaken = true
     for (const item of here.pedestals) item.taken = true
-    if (def.kind === 'active') equipActive(g, def.id, def.name, def.description, def.charges ?? 3, def.use ?? '')
+    if (def.kind === 'active') equipActive(g, def, pedestal.x, pedestal.y)
     else grantPassive(g, def)
     floater(g, pedestal.x, pedestal.y - 28, def.name, '#ffe1a3')
     g.events.push({ type: 'collect' })
@@ -506,9 +521,18 @@ function grantPassive(g: Game, def: UpgradeDef): void {
   g.passives.push(def.id)
 }
 
-function equipActive(g: Game, id: string, name: string, description: string, charges: number, use: string): void {
-  const active: Active = { id, name, description, charges: Math.max(1, charges), charge: 0, use }
+function equipActive(g: Game, def: UpgradeDef, x: number, y: number): void {
+  const previous = g.active
+  const active: Active = {
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    charges: Math.max(1, def.charges ?? 3),
+    charge: 0,
+    use: def.use ?? '',
+  }
   g.active = active
+  if (previous && previous.id !== def.id) floater(g, x, y - 46, `Swapped out ${previous.name}`, '#d9cfc4')
 }
 
 function openChest(g: Game, x: number, y: number): void {
@@ -526,9 +550,9 @@ function openChest(g: Game, x: number, y: number): void {
     })
   }
   const chance = Math.min(0.45, 0.08 + Math.max(0, g.stats.luck) * 0.03)
-  if (UPGRADES.length && g.rng() < chance) {
-    const def = UPGRADES[Math.floor(g.rng() * UPGRADES.length)]!
-    if (def.kind === 'active') equipActive(g, def.id, def.name, def.description, def.charges ?? 3, def.use ?? '')
+  const def = g.rng() < chance ? rollUpgrade(g.rng) : null
+  if (def) {
+    if (def.kind === 'active') equipActive(g, def, x, y)
     else grantPassive(g, def)
     floater(g, x, y - 28, def.name, '#ffe1a3')
   } else {
@@ -912,8 +936,45 @@ function tryDoor(g: Game): void {
       (across && tx === door.tx + 1 && ty === door.ty) ||
       (!across && tx === door.tx && ty === door.ty + 1)
     if (!on) continue
+    const dest = g.rooms[door.to]
+    if (dest && roomHasUnseenTier4(dest)) {
+      g.whiteFlash = 0.7
+      g.whiteFlashMax = 0.7
+    }
     g.slide = { from: g.roomIndex, to: door.to, dir: door.dir, t: 0, settled: false }
     return
+  }
+}
+
+const REVEAL_FOR_TIER: Partial<Record<UpgradeDef['tier'], number>> = {
+  2: 0.9,
+  3: 1.5,
+  4: 2,
+}
+
+function roomHasUnseenTier4(here: Room): boolean {
+  return here.pedestals.some((pedestal) => {
+    if (pedestal.seen || pedestal.taken || !pedestal.upgradeId) return false
+    return upgradeById(pedestal.upgradeId)?.tier === 4
+  })
+}
+
+function noticePedestals(here: Room): void {
+  for (const pedestal of here.pedestals) {
+    if (pedestal.seen || pedestal.taken || !pedestal.upgradeId) continue
+    const def = upgradeById(pedestal.upgradeId)
+    pedestal.seen = true
+    const reveal = def ? REVEAL_FOR_TIER[def.tier] : 0
+    if (reveal) pedestal.reveal = reveal
+  }
+}
+
+function stepRoomFx(g: Game, dt: number): void {
+  g.whiteFlash = Math.max(0, g.whiteFlash - dt)
+  for (const here of g.rooms) {
+    for (const pedestal of here.pedestals) {
+      if (pedestal.reveal > 0) pedestal.reveal = Math.max(0, pedestal.reveal - dt)
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import { doorCenter, entryOf, roomOffset } from './dungeon.ts'
-import type { Bullet, Decor, Dir, Enemy, Game, Particle, Room } from './types.ts'
+import type { Bullet, Decor, Dir, Enemy, Game, Particle, Pedestal, Room } from './types.ts'
 import { SLIDE_TIME, TILE } from './types.ts'
+import { upgradeById } from './upgrades.ts'
 
 const TAU = Math.PI * 2
 
@@ -109,6 +110,12 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   }
   if (g.hurtFlash > 0) {
     ctx.fillStyle = `rgba(255, 244, 230, ${Math.min(0.35, g.hurtFlash)})`
+    ctx.fillRect(0, 0, w, h)
+  }
+  if (g.whiteFlash > 0 && g.whiteFlashMax > 0) {
+    const along = 1 - g.whiteFlash / g.whiteFlashMax
+    const alpha = Math.sin(Math.min(1, Math.max(0, along)) * Math.PI) ** 0.65 * 0.82
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
     ctx.fillRect(0, 0, w, h)
   }
   if (g.state === 'dying' || g.state === 'dead') {
@@ -240,7 +247,7 @@ function drawRoom(ctx: CanvasRenderingContext2D, here: Room, t: number, ox: numb
   }
   for (const door of here.doors) drawDoor(ctx, here, door.dir, door.tx, door.ty, here.cleared)
   for (const coin of here.coins) if (!coin.taken) drawPickup(ctx, coin.x, coin.y, coin.kind, t)
-  for (const pedestal of here.pedestals) drawPedestal(ctx, pedestal.x, pedestal.y, !!pedestal.upgradeId && !pedestal.taken, pedestal.taken)
+  for (const pedestal of here.pedestals) drawPedestal(ctx, pedestal, t)
   if (here.chest && (here.kind !== 'boss' || here.cleared)) drawChest(ctx, here.chest.x, here.chest.y, here.chest.opened, t)
   if (here.stair) drawStair(ctx, (here.w * TILE) / 2, (here.h * TILE) / 2 + 70, t)
   ctx.restore()
@@ -306,17 +313,102 @@ function drawCoin(ctx: CanvasRenderingContext2D, x: number, y: number, t: number
   ctx.restore()
 }
 
-function drawPedestal(ctx: CanvasRenderingContext2D, x: number, y: number, full: boolean, taken: boolean): void {
+const TIER_GEM = ['#c4b4a4', '#f0b45a', '#9eb7d8', '#ffe1a3', '#fffaf2']
+
+function drawPedestal(ctx: CanvasRenderingContext2D, pedestal: Pedestal, t: number): void {
+  const x = pedestal.x
+  const y = pedestal.y
+  const full = !!pedestal.upgradeId && !pedestal.taken
+  const def = full && pedestal.upgradeId ? upgradeById(pedestal.upgradeId) : undefined
   ctx.fillStyle = '#2a211c'
   ctx.fillRect(x - 10, y - 4, 20, 16)
-  ctx.fillStyle = taken ? '#4a403a' : '#6a5348'
+  ctx.fillStyle = pedestal.taken ? '#4a403a' : '#6a5348'
   ctx.fillRect(x - 7, y - 16, 14, 14)
-  if (full) {
-    ctx.beginPath()
-    ctx.arc(x, y - 22, 6, 0, TAU)
-    ctx.fillStyle = '#ffe1a3'
-    ctx.fill()
+  if (!def) return
+  const gem = TIER_GEM[def.tier] ?? '#ffe1a3'
+  const orbY = y - 22
+  if (def.tier === 2 && pedestal.reveal > 0) drawTier2Glow(ctx, x, orbY, pedestal.reveal)
+  ctx.beginPath()
+  ctx.arc(x, orbY, 6, 0, TAU)
+  ctx.fillStyle = gem
+  ctx.fill()
+  if (def.tier === 4 && pedestal.reveal > 0) drawTier4Reveal(ctx, x, orbY, pedestal.reveal, t)
+  if (def.tier === 3) drawTier3Sparkles(ctx, x, orbY, pedestal.reveal, t)
+  ctx.globalAlpha = 1
+}
+
+function drawTier2Glow(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number): void {
+  const along = 1 - reveal / 0.9
+  const alpha = Math.sin(Math.min(1, Math.max(0, along)) * Math.PI) * 0.16
+  const glow = ctx.createRadialGradient(x, y, 2, x, y, 34)
+  glow.addColorStop(0, `rgba(168, 196, 230, ${alpha})`)
+  glow.addColorStop(1, 'rgba(168, 196, 230, 0)')
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(x, y, 34, 0, TAU)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(x, y, 9, 0, TAU)
+  ctx.strokeStyle = `rgba(186, 210, 236, ${alpha * 2.4})`
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+}
+
+function drawTier3Sparkles(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number, t: number): void {
+  const burst = reveal > 0 ? reveal / 1.5 : 0
+  const count = burst > 0.05 ? 12 : 5
+  for (let i = 0; i < count; i++) {
+    const ang = t * (burst > 0.05 ? 2.6 : 0.85) + (i * TAU) / count
+    const orbit = 11 + (i % 3) * 4
+    const extra = burst * (8 + (i % 4) * 6)
+    const px = x + Math.cos(ang) * (orbit + extra)
+    const py = y + Math.sin(ang) * (orbit + extra) * 0.7
+    const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 6 + i * 1.7))
+    ctx.globalAlpha = burst > 0.05 ? 0.5 + 0.5 * tw : 0.28 + 0.35 * tw
+    ctx.fillStyle = i % 2 === 0 ? '#fffaf2' : '#ffe1a3'
+    ctx.save()
+    ctx.translate(px, py)
+    ctx.rotate(Math.PI / 4 + t * 0.4)
+    const s = (burst > 0.05 ? 1.7 : 1.15) * (0.7 + tw * 0.5)
+    ctx.fillRect(-s, -s, s * 2, s * 2)
+    ctx.restore()
   }
+  ctx.globalAlpha = 1
+}
+
+function drawTier4Reveal(ctx: CanvasRenderingContext2D, x: number, y: number, reveal: number, t: number): void {
+  const life = Math.min(1, Math.max(0, reveal / 2))
+  const fade = Math.sin(life * Math.PI)
+  ctx.save()
+  ctx.translate(x, y)
+  const column = ctx.createLinearGradient(0, 8, 0, -78)
+  column.addColorStop(0, `rgba(255, 250, 242, ${0.08 * fade})`)
+  column.addColorStop(0.45, `rgba(255, 250, 242, ${0.55 * fade})`)
+  column.addColorStop(1, 'rgba(255, 250, 242, 0)')
+  ctx.fillStyle = column
+  ctx.fillRect(-3.5, -78, 7, 86)
+  ctx.rotate(t * 1.1)
+  for (let i = 0; i < 12; i++) {
+    const ang = (i / 12) * TAU
+    const len = 18 + fade * 34 + (i % 3) * 6
+    ctx.globalAlpha = (0.25 + (i % 2) * 0.25) * fade
+    ctx.strokeStyle = i % 3 === 0 ? '#fffaf2' : '#ffe7b0'
+    ctx.lineWidth = i % 2 === 0 ? 1.6 : 1
+    ctx.beginPath()
+    ctx.moveTo(Math.cos(ang) * 7, Math.sin(ang) * 7)
+    ctx.lineTo(Math.cos(ang) * len, Math.sin(ang) * len)
+    ctx.stroke()
+  }
+  ctx.restore()
+  for (let ring = 0; ring < 2; ring++) {
+    const pulse = (t * 0.85 + ring * 0.5) % 1
+    ctx.beginPath()
+    ctx.arc(x, y, 8 + pulse * 48, 0, TAU)
+    ctx.strokeStyle = `rgba(255, 250, 242, ${(1 - pulse) * 0.75 * fade})`
+    ctx.lineWidth = 1.6
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
 }
 
 function drawChest(ctx: CanvasRenderingContext2D, x: number, y: number, opened: boolean, t: number): void {
