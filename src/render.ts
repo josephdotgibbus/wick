@@ -38,13 +38,28 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
   ctx.translate(-cam.x, -cam.y)
 
   const pose = menu ? null : slidePose(g)
+  const here = g.rooms[g.roomIndex]
+  ctx.beginPath()
+  if (pose) {
+    const keepFrom = pose.u < 1
+    const x0 = keepFrom ? Math.min(0, pose.off.x) : pose.off.x
+    const y0 = keepFrom ? Math.min(0, pose.off.y) : pose.off.y
+    const x1 = keepFrom ? Math.max(pose.from.w * TILE, pose.off.x + pose.to.w * TILE) : pose.off.x + pose.to.w * TILE
+    const y1 = keepFrom ? Math.max(pose.from.h * TILE, pose.off.y + pose.to.h * TILE) : pose.off.y + pose.to.h * TILE
+    ctx.rect(x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4)
+  } else if (!menu && here) {
+    ctx.rect(-2, -2, here.w * TILE + 4, here.h * TILE + 4)
+  } else {
+    ctx.rect(-8000, -8000, 16000, 16000)
+  }
+  ctx.clip()
+
   if (menu) drawGround(ctx, g.player.x, g.player.y, w, h)
   else if (pose) {
-    drawRoom(ctx, pose.from, view.wall, 0, 0)
+    if (pose.u < 1) drawRoom(ctx, pose.from, view.wall, 0, 0)
     drawRoom(ctx, pose.to, view.wall, pose.off.x, pose.off.y)
-  } else {
-    const here = g.rooms[g.roomIndex]
-    if (here) drawRoom(ctx, here, view.wall, 0, 0)
+  } else if (here) {
+    drawRoom(ctx, here, view.wall, 0, 0)
   }
   if (!pose) {
     for (const wline of g.warnings) drawWarning(ctx, wline.x, wline.y, wline.ang, wline.len, wline.life / wline.max, wline.thin)
@@ -72,14 +87,17 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
     ctx.fillText(f.text, f.x, f.y)
   }
   ctx.globalAlpha = 1
-  if (!menu && !pose && g.state !== 'dead') {
+  const reveal = pose ? Math.max(0, (pose.u - 0.62) / 0.38) : 1
+  if (!menu && g.state !== 'dead' && reveal > 0) {
+    const lx = pose ? pose.px : g.player.x
+    const ly = pose ? pose.py : g.player.y
     const span = Math.max(w, h) / cam.zoom
     const radius = g.light * 1.45
-    const glow = ctx.createRadialGradient(g.player.x, g.player.y, radius * 0.62, g.player.x, g.player.y, radius)
+    const glow = ctx.createRadialGradient(lx, ly, radius * 0.62, lx, ly, radius)
     glow.addColorStop(0, 'rgba(0,0,0,0)')
-    glow.addColorStop(1, 'rgba(0,0,0,0.22)')
+    glow.addColorStop(1, `rgba(0,0,0,${0.22 * reveal})`)
     ctx.fillStyle = glow
-    ctx.fillRect(g.player.x - span, g.player.y - span, span * 2, span * 2)
+    ctx.fillRect(lx - span, ly - span, span * 2, span * 2)
   }
   ctx.restore()
 
@@ -104,28 +122,48 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, view: RenderView)
 function camera(g: Game, w: number, h: number): { x: number; y: number; zoom: number } {
   const pose = slidePose(g)
   if (pose) {
-    const z0 = zoomFor(pose.from, w, h)
-    const z1 = zoomFor(pose.to, w, h)
-    const zoom = z0 + (z1 - z0) * pose.u
-    const x0 = (pose.from.w * TILE) / 2
-    const y0 = (pose.from.h * TILE) / 2
-    const x1 = (pose.to.w * TILE) / 2 + pose.off.x
-    const y1 = (pose.to.h * TILE) / 2 + pose.off.y
-    return { x: x0 + (x1 - x0) * pose.u, y: y0 + (y1 - y0) * pose.u, zoom }
+    const start = fitted(pose.from, g.player.x, g.player.y, w, h)
+    const endLocal = fitted(pose.to, pose.ax, pose.ay, w, h)
+    const end = { x: endLocal.x + pose.off.x, y: endLocal.y + pose.off.y, zoom: endLocal.zoom }
+    const along = start.zoom + (end.zoom - start.zoom) * pose.u
+    const open = Math.sin(pose.u * Math.PI)
+    const wide = Math.min(along, boundsZoom(pose, w, h))
+    return {
+      x: start.x + (end.x - start.x) * pose.u,
+      y: start.y + (end.y - start.y) * pose.u,
+      zoom: along + (wide - along) * open,
+    }
   }
   const here = g.rooms[g.roomIndex]
   if (!here) return { x: g.player.x, y: g.player.y, zoom: 1 }
-  const zoom = zoomFor(here, w, h)
-  const rw = here.w * TILE
-  const rh = here.h * TILE
+  return fitted(here, g.player.x, g.player.y, w, h)
+}
+
+function fitted(room: Room, focusX: number, focusY: number, w: number, h: number): { x: number; y: number; zoom: number } {
+  const zoom = zoomFor(room, w, h)
+  const rw = room.w * TILE
+  const rh = room.h * TILE
   if (rw * zoom <= w && rh * zoom <= h) return { x: rw / 2, y: rh / 2, zoom }
   const viewW = w / zoom
   const viewH = h / zoom
   return {
-    x: Math.min(rw - viewW / 2, Math.max(viewW / 2, g.player.x)),
-    y: Math.min(rh - viewH / 2, Math.max(viewH / 2, g.player.y)),
+    x: Math.min(rw - viewW / 2, Math.max(viewW / 2, focusX)),
+    y: Math.min(rh - viewH / 2, Math.max(viewH / 2, focusY)),
     zoom,
   }
+}
+
+function boundsZoom(
+  pose: { from: Room; to: Room; off: { x: number; y: number } },
+  w: number,
+  h: number,
+): number {
+  const x0 = Math.min(0, pose.off.x)
+  const y0 = Math.min(0, pose.off.y)
+  const x1 = Math.max(pose.from.w * TILE, pose.off.x + pose.to.w * TILE)
+  const y1 = Math.max(pose.from.h * TILE, pose.off.y + pose.to.h * TILE)
+  const fit = Math.min((w - 48) / Math.max(1, x1 - x0), (h - 160) / Math.max(1, y1 - y0))
+  return Math.max(0.45, fit)
 }
 
 function zoomFor(room: Room, w: number, h: number): number {
@@ -133,7 +171,16 @@ function zoomFor(room: Room, w: number, h: number): number {
   return Math.min(2.8, Math.max(1, fit))
 }
 
-function slidePose(g: Game): { from: Room; to: Room; off: { x: number; y: number }; px: number; py: number; u: number } | null {
+function slidePose(g: Game): {
+  from: Room
+  to: Room
+  off: { x: number; y: number }
+  px: number
+  py: number
+  ax: number
+  ay: number
+  u: number
+} | null {
   const slide = g.slide
   if (!slide) return null
   const from = g.rooms[slide.from]
@@ -147,6 +194,8 @@ function slidePose(g: Game): { from: Room; to: Room; off: { x: number; y: number
     to,
     off,
     u,
+    ax: arrive.x,
+    ay: arrive.y,
     px: g.player.x + (arrive.x + off.x - g.player.x) * u,
     py: g.player.y + (arrive.y + off.y - g.player.y) * u,
   }

@@ -39,8 +39,8 @@ export function createGame(): Game {
     menuT: 0,
     dungeon: 1,
     bestAtStart: 0,
-    heat: 100,
-    maxHeat: 100,
+    heat: 50,
+    maxHeat: 50,
     rekindle: 0,
     rekindleMax: 0,
     light: 168,
@@ -157,7 +157,7 @@ export function startRun(g: Game, opts: RunOptions): void {
   g.tutor = opts.tutor
   g.stats = baseStats()
   applyBlessing(g.stats, opts.blessing)
-  g.maxHeat = 100 + heatBonus(opts.blessing)
+  g.maxHeat = 50 + heatBonus(opts.blessing)
   g.heat = g.maxHeat
   g.state = 'playing'
   g.dungeon = 1
@@ -794,10 +794,10 @@ function makeEnemy(g: Game, kind: Kind, x: number, y: number): Enemy {
   const rank = g.dungeon
   const base =
     kind === 'cinder'
-      ? { hp: (14 + rank * 3) * strong, r: 11, speed: 58, touch: 11, name: 'Cinder wisp' }
+      ? { hp: (14 + rank * 3) * strong * (2 / 3), r: 11, speed: 58, touch: 11, name: 'Cinder wisp' }
       : kind === 'boss'
-        ? { hp: (120 + rank * 48) * strong, r: 36, speed: 34 + rank, touch: 16, name: 'The Briar' }
-        : { hp: (8 + rank * 2) * strong, r: 9, speed: 72, touch: 9, name: 'Wisp' }
+        ? { hp: (120 + rank * 48) * strong * (2 / 3), r: 36, speed: 34 + rank, touch: 16, name: 'The Briar' }
+        : { hp: (8 + rank * 2) * strong * (2 / 3), r: 9, speed: 72, touch: 9, name: 'Wisp' }
   return {
     id: g.nextId++,
     kind,
@@ -912,7 +912,7 @@ function tryDoor(g: Game): void {
       (across && tx === door.tx + 1 && ty === door.ty) ||
       (!across && tx === door.tx && ty === door.ty + 1)
     if (!on) continue
-    g.slide = { from: g.roomIndex, to: door.to, dir: door.dir, t: 0 }
+    g.slide = { from: g.roomIndex, to: door.to, dir: door.dir, t: 0, settled: false }
     return
   }
 }
@@ -920,12 +920,15 @@ function tryDoor(g: Game): void {
 function stepSlide(g: Game, dt: number): void {
   const slide = g.slide
   if (!slide) return
-  slide.t += dt
-  if (slide.t < SLIDE_TIME) return
-  const dir = slide.dir
-  const to = slide.to
-  g.slide = null
-  goTo(g, to, opposite(dir))
+  if (slide.settled) {
+    const dir = slide.dir
+    const to = slide.to
+    g.slide = null
+    goTo(g, to, opposite(dir))
+    return
+  }
+  slide.t = Math.min(SLIDE_TIME, slide.t + dt)
+  if (slide.t >= SLIDE_TIME) slide.settled = true
 }
 
 function shoveEnemies(g: Game): void {
@@ -949,10 +952,12 @@ function shoveEnemies(g: Game): void {
       x += nx * 18
       y += ny * 18
     }
-    if (hitsSolid(here, x, y, e.r)) {
-      const mid = center(here)
-      x = mid.x
-      y = mid.y
+    if (hitsSolid(here, x, y, Math.min(e.r, 12))) {
+      const spot = nearestOpen(here, e.x, e.y, Math.min(e.r, 12))
+      if (spot) {
+        x = spot.x
+        y = spot.y
+      }
     }
     e.x = x
     e.y = y
@@ -1085,10 +1090,19 @@ function separateEnemies(g: Game): void {
         const push = (min - dist) / 2
         const nx = dx / dist
         const ny = dy / dist
-        a.x -= nx * push
-        a.y -= ny * push
-        b.x += nx * push
-        b.y += ny * push
+        const ax = a.x - nx * push
+        const ay = a.y - ny * push
+        const bx = b.x + nx * push
+        const by = b.y + ny * push
+        const here = room(g)
+        if (!solidAt(here, ax, ay, true)) {
+          a.x = ax
+          a.y = ay
+        }
+        if (!solidAt(here, bx, by, true)) {
+          b.x = bx
+          b.y = by
+        }
       }
     }
   }
@@ -1096,13 +1110,37 @@ function separateEnemies(g: Game): void {
 
 function unstick(g: Game): void {
   const here = room(g)
-  const mid = center(here)
   for (const e of g.enemies) {
-    if (e.dead || !hitsSolid(here, e.x, e.y, Math.max(6, e.r * 0.45))) continue
-    const ang = Math.atan2(mid.y - e.y, mid.x - e.x)
-    e.x += Math.cos(ang) * 6
-    e.y += Math.sin(ang) * 6
+    if (e.dead || !solidAt(here, e.x, e.y, true)) continue
+    const spot = nearestOpen(here, e.x, e.y, Math.min(e.r, 12))
+    if (!spot) continue
+    e.x = spot.x
+    e.y = spot.y
+    e.prevX = spot.x
+    e.prevY = spot.y
   }
+}
+
+function nearestOpen(room: Room, x: number, y: number, radius: number): { x: number; y: number } | null {
+  const clear = (px: number, py: number) => !hitsSolid(room, px, py, radius)
+  if (clear(x, y)) return { x, y }
+  for (let dist = 10; dist <= 240; dist += 10) {
+    const steps = 12 + Math.floor(dist / 16)
+    for (let i = 0; i < steps; i++) {
+      const ang = (i / steps) * TAU
+      const px = x + Math.cos(ang) * dist
+      const py = y + Math.sin(ang) * dist
+      if (clear(px, py)) return { x: px, y: py }
+    }
+  }
+  for (let ty = 1; ty < room.h - 1; ty++) {
+    for (let tx = 1; tx < room.w - 1; tx++) {
+      const px = (tx + 0.5) * TILE
+      const py = (ty + 0.5) * TILE
+      if (clear(px, py)) return { x: px, y: py }
+    }
+  }
+  return null
 }
 
 function nearest(g: Game, x: number, y: number, range: number): Enemy | null {

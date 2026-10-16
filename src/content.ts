@@ -7,8 +7,8 @@ export const EVENTS: EventId[] = ['strong', 'slip', 'rubble', 'haste', 'starve',
 export function baseStats(): Stats {
   return {
     damage: 3.5,
-    tears: 2.73,
-    speed: 1,
+    tears: 1.82,
+    speed: 0.85,
     range: 6.5,
     shotSpeed: 1,
     luck: 0,
@@ -108,7 +108,7 @@ export const BLESSINGS: Blessing[] = [
   {
     id: 'step',
     name: 'Speed',
-    desc: 'Start at speed 1.20 instead of 1.00.',
+    desc: 'Start at speed 1.05 instead of 0.85.',
     need: 'Reach dungeon 3',
     met: (m) => m.round >= 3,
   },

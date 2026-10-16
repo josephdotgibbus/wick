@@ -221,13 +221,15 @@ export interface Banner {
   life: number
 }
 
-export const SLIDE_TIME = 0.45
+export const SLIDE_TIME = 0.62
 
 export interface Slide {
   from: number
   to: number
   dir: Dir
   t: number
+  /** True for the last frame, so the view can settle before the room swap. */
+  settled: boolean
 }
 
 export type GameEvent =

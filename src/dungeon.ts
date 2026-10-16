@@ -219,7 +219,7 @@ function pickShape(rng: () => number): Shape {
 function stamp(shape: Shape): { w: number; h: number; tiles: TileId[] } {
   if (shape === 'hall') return boxed(18, 7, () => {})
   if (shape === 'wide') return boxed(16, 8, () => {})
-  if (shape === 'arena') return boxed(16, 12, () => {})
+  if (shape === 'arena') return boxed(24, 16, () => {})
   if (shape === 'chapel') return boxed(13, 10, () => {})
   if (shape === 'hearth') return boxed(12, 9, () => {})
   if (shape === 'ell') {
